@@ -1,0 +1,1 @@
+cc mpc.c main.c -ledit -o hz
