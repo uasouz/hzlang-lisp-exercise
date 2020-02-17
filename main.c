@@ -5,13 +5,14 @@
 //HZ Evaluation Value
 
 //Evaluation Types Enum
-enum {HZVAL_NUM,HZVAL_ERR};
+enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_ERR};
 
 //Errors Types Enum
 enum {HZERR_DIV_ZERO,HZERR_BAD_OP,HZERR_BAD_NUM};
 typedef struct {
     int type;
     long num;
+    double dec;
     int err;
 } HzValue;
 
@@ -19,6 +20,13 @@ HzValue hzval_num(long value){
     HzValue hzValue;
     hzValue.type = HZVAL_NUM;
     hzValue.num = value;
+    return hzValue;
+}
+
+HzValue hzval_decimal(double value){
+    HzValue hzValue;
+    hzValue.type = HZVAL_DECIMAL;
+    hzValue.dec = value;
     return hzValue;
 }
 
@@ -44,6 +52,9 @@ void hzval_print(HzValue value){
     {
     case HZVAL_NUM:
         printf("%li",value.num);
+        break;
+    case HZVAL_DECIMAL:
+        printf("%f",value.dec);
         break;
     
     case HZVAL_ERR:
@@ -93,7 +104,7 @@ mpc_parser_t **create_basic_parser()
         number: /[-+]?[0-9]+/ ;                \
         decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;                \
         operator: '+' | '-' | '*' | '/' | '%' | '^' ;                \
-        expression: <number> | <decimal> | '(' <operator> <expression>+ ')' ;                \
+        expression: (<decimal> | <number> ) | '(' <operator> <expression>+ ')' ;                \
         hz: /^/ <operator> <expression>+ /$/ ;                \
     ",
               Number, Decimal, Operator, Expression, Hz);
@@ -125,6 +136,28 @@ HzValue eval_op(HzValue x, char* op, HzValue y) {
     if(x.type==HZVAL_ERR){ return x;}
     if(y.type==HZVAL_ERR) { return y;}
 
+    if(x.type==HZVAL_DECIMAL || y.type==HZVAL_DECIMAL){
+        if(x.type==HZVAL_NUM){
+            x.dec = x.num;
+        }
+        if(y.type==HZVAL_NUM){
+            y.dec = y.num;
+        }
+        
+        if (strcmp(op, "+") == 0) { return hzval_decimal(x.dec + y.dec); }
+        if (strcmp(op, "-") == 0) { return hzval_decimal(x.dec - y.dec); }
+        if (strcmp(op, "*") == 0) { return hzval_decimal(x.dec * y.dec); }
+        if (strcmp(op, "/") == 0) {
+            if(y.dec==0){
+                return hzval_err(HZERR_DIV_ZERO);
+            } else {
+                return hzval_decimal(x.dec / y.dec);
+            }
+            }
+        if (strcmp(op, "%") == 0) { return hzval_decimal(fmod(x.dec,y.dec)); }
+        if (strcmp(op, "^") == 0) { return hzval_decimal(pow(x.dec,y.dec)); }
+    }
+
   if (strcmp(op, "+") == 0) { return hzval_num(x.num + y.num); }
   if (strcmp(op, "-") == 0) { return hzval_num(x.num - y.num); }
   if (strcmp(op, "*") == 0) { return hzval_num(x.num * y.num); }
@@ -146,6 +179,12 @@ HzValue eval(mpc_ast_t* tree){
         errno = 0;
         long number = strtol(tree->contents,NULL,10);
         return errno != ERANGE ? hzval_num(number) : hzval_err(HZERR_BAD_NUM);
+    }
+
+    if(strstr(tree->tag,"decimal")){
+        errno = 0;
+        double number = strtod(tree->contents,NULL);
+        return errno != ERANGE ? hzval_decimal(number) : hzval_err(HZERR_BAD_NUM);
     }
 
     //Evaluation recursive case
