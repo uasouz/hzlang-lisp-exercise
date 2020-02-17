@@ -3,7 +3,6 @@
 #include "mpc.h"
 
 //Parser section
-
 void mpc_list_cleanup(int n, mpc_parser_t **list)
 {
     int i;
@@ -32,7 +31,7 @@ mpc_parser_t **create_basic_parser()
               "   \
         number: /[-+]?[0-9]+/ ;                \
         decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;                \
-        operator: '+' | '-' | '*' | '/' | '%' ;                \
+        operator: '+' | '-' | '*' | '/' | '%' | '^' ;                \
         expression: <number> | <decimal> | '(' <operator> <expression>+ ')' ;                \
         hz: /^/ <operator> <expression>+ /$/ ;                \
     ",
@@ -46,6 +45,52 @@ mpc_parser_t **create_basic_parser()
 }
 
 //End parser section
+
+//AST Traversal Section
+int number_of_nodes(mpc_ast_t* tree){
+    if(tree->children_num==0){ return 1;}
+    if(tree->children_num >=1 ){
+        int total = 1;
+        for(int i =0;i < tree->children_num;i++){
+            total = total + number_of_nodes(tree->children[i]);
+        }
+        return total;
+    }
+    return 0;
+}
+
+long eval_op(long x, char* op, long y) {
+  if (strcmp(op, "+") == 0) { return x + y; }
+  if (strcmp(op, "-") == 0) { return x - y; }
+  if (strcmp(op, "*") == 0) { return x * y; }
+  if (strcmp(op, "/") == 0) { return x / y; }
+  if (strcmp(op, "%") == 0) { return x % y; }
+  if (strcmp(op, "^") == 0) { return pow(x,y); }
+  return 0;
+}
+
+long eval(mpc_ast_t* tree){
+    //Evaluation base case
+    if(strstr(tree->tag,"number")){
+        return atoi(tree->contents);
+    }
+
+    //Evaluation recursive case
+    //The operator is always the second child,the first will be a '('
+    char* op = tree->children[1]->contents;
+
+    long evaluated = eval(tree->children[2]);
+
+    int i = 3;
+    while (strstr(tree->children[i]->tag,"expression"))
+    {
+        evaluated = eval_op(evaluated,op,eval(tree->children[i]));
+        i++;
+    }
+    
+    return evaluated;
+}
+//End AST Traversal Section
 
 #ifdef _WIN32
 #include <string.h>
@@ -86,7 +131,8 @@ int main(int argc, char **argv)
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, parsers[4], &r))
         {
-            mpc_ast_print(r.output);
+            long result = eval(r.output);
+            printf("%li\n", result);
             mpc_ast_delete(r.output);
         }
         else
