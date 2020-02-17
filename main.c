@@ -2,6 +2,67 @@
 #include <stdlib.h>
 #include "mpc.h"
 
+//HZ Evaluation Value
+
+//Evaluation Types Enum
+enum {HZVAL_NUM,HZVAL_ERR};
+
+//Errors Types Enum
+enum {HZERR_DIV_ZERO,HZERR_BAD_OP,HZERR_BAD_NUM};
+typedef struct {
+    int type;
+    long num;
+    int err;
+} HzValue;
+
+HzValue hzval_num(long value){
+    HzValue hzValue;
+    hzValue.type = HZVAL_NUM;
+    hzValue.num = value;
+    return hzValue;
+}
+
+HzValue hzval_err(int err){
+    HzValue hzValue;
+    hzValue.type = HZVAL_ERR;
+    hzValue.err = err;
+    return hzValue;
+}
+
+char* join_string(char* first,char* second){
+    char* buf = malloc(sizeof(char)* 2048);
+    snprintf(buf,2047,"%s%s",first,second);
+    return buf;
+}
+
+char* create_error_message(char* message){
+    return join_string("Error: ", message);
+}
+
+void hzval_print(HzValue value){
+    switch (value.type)
+    {
+    case HZVAL_NUM:
+        printf("%li",value.num);
+        break;
+    
+    case HZVAL_ERR:
+        if(value.err == HZERR_DIV_ZERO){
+            printf("%s",create_error_message("Division by zero"));
+        }
+        if(value.err == HZERR_BAD_OP){
+            printf("%s",create_error_message("Invalid Operator"));
+        }
+        if(value.err == HZERR_BAD_NUM){
+            printf("%s",create_error_message("Invalid Number"));
+        }
+        break;
+    }
+}
+
+void hzval_println(HzValue value) { hzval_print(value); putchar('\n');}
+//End HZ Evaluation Value
+
 //Parser section
 void mpc_list_cleanup(int n, mpc_parser_t **list)
 {
@@ -59,27 +120,39 @@ int number_of_nodes(mpc_ast_t* tree){
     return 0;
 }
 
-long eval_op(long x, char* op, long y) {
-  if (strcmp(op, "+") == 0) { return x + y; }
-  if (strcmp(op, "-") == 0) { return x - y; }
-  if (strcmp(op, "*") == 0) { return x * y; }
-  if (strcmp(op, "/") == 0) { return x / y; }
-  if (strcmp(op, "%") == 0) { return x % y; }
-  if (strcmp(op, "^") == 0) { return pow(x,y); }
-  return 0;
+HzValue eval_op(HzValue x, char* op, HzValue y) {
+
+    if(x.type==HZVAL_ERR){ return x;}
+    if(y.type==HZVAL_ERR) { return y;}
+
+  if (strcmp(op, "+") == 0) { return hzval_num(x.num + y.num); }
+  if (strcmp(op, "-") == 0) { return hzval_num(x.num - y.num); }
+  if (strcmp(op, "*") == 0) { return hzval_num(x.num * y.num); }
+  if (strcmp(op, "/") == 0) {
+      if(y.num==0){
+          return hzval_err(HZERR_DIV_ZERO);
+      } else {
+        return hzval_num(x.num / y.num);
+      }
+    }
+  if (strcmp(op, "%") == 0) { return hzval_num(x.num % y.num); }
+  if (strcmp(op, "^") == 0) { return hzval_num(pow(x.num,y.num)); }
+  return hzval_err(HZERR_BAD_OP);
 }
 
-long eval(mpc_ast_t* tree){
+HzValue eval(mpc_ast_t* tree){
     //Evaluation base case
     if(strstr(tree->tag,"number")){
-        return atoi(tree->contents);
+        errno = 0;
+        long number = strtol(tree->contents,NULL,10);
+        return errno != ERANGE ? hzval_num(number) : hzval_err(HZERR_BAD_NUM);
     }
 
     //Evaluation recursive case
     //The operator is always the second child,the first will be a '('
     char* op = tree->children[1]->contents;
 
-    long evaluated = eval(tree->children[2]);
+    HzValue evaluated = eval(tree->children[2]);
 
     int i = 3;
     while (strstr(tree->children[i]->tag,"expression"))
@@ -131,8 +204,8 @@ int main(int argc, char **argv)
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, parsers[4], &r))
         {
-            long result = eval(r.output);
-            printf("%li\n", result);
+            HzValue result = eval(r.output);
+            hzval_println(result);
             mpc_ast_delete(r.output);
         }
         else
