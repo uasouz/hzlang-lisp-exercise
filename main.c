@@ -1,78 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "mpc.h"
-
-//HZ Evaluation Value
-
-//Evaluation Types Enum
-enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_ERR};
-
-//Errors Types Enum
-enum {HZERR_DIV_ZERO,HZERR_BAD_OP,HZERR_BAD_NUM};
-typedef struct {
-    int type;
-    long num;
-    double dec;
-    int err;
-} HzValue;
-
-HzValue hzval_num(long value){
-    HzValue hzValue;
-    hzValue.type = HZVAL_NUM;
-    hzValue.num = value;
-    return hzValue;
-}
-
-HzValue hzval_decimal(double value){
-    HzValue hzValue;
-    hzValue.type = HZVAL_DECIMAL;
-    hzValue.dec = value;
-    return hzValue;
-}
-
-HzValue hzval_err(int err){
-    HzValue hzValue;
-    hzValue.type = HZVAL_ERR;
-    hzValue.err = err;
-    return hzValue;
-}
-
-char* join_string(char* first,char* second){
-    char* buf = malloc(sizeof(char)* 2048);
-    snprintf(buf,2047,"%s%s",first,second);
-    return buf;
-}
-
-char* create_error_message(char* message){
-    return join_string("Error: ", message);
-}
-
-void hzval_print(HzValue value){
-    switch (value.type)
-    {
-    case HZVAL_NUM:
-        printf("%li",value.num);
-        break;
-    case HZVAL_DECIMAL:
-        printf("%f",value.dec);
-        break;
-    
-    case HZVAL_ERR:
-        if(value.err == HZERR_DIV_ZERO){
-            printf("%s",create_error_message("Division by zero"));
-        }
-        if(value.err == HZERR_BAD_OP){
-            printf("%s",create_error_message("Invalid Operator"));
-        }
-        if(value.err == HZERR_BAD_NUM){
-            printf("%s",create_error_message("Invalid Number"));
-        }
-        break;
-    }
-}
-
-void hzval_println(HzValue value) { hzval_print(value); putchar('\n');}
-//End HZ Evaluation Value
+// #include "mpc.h"
+#include "hzval.h"
 
 //Parser section
 void mpc_list_cleanup(int n, mpc_parser_t **list)
@@ -91,11 +20,12 @@ void mpc_list_cleanup(int n, mpc_parser_t **list)
 mpc_parser_t **create_basic_parser()
 {
 
-    mpc_parser_t **parsers = malloc(sizeof(mpc_parser_t *) * 4);
+    mpc_parser_t **parsers = malloc(sizeof(mpc_parser_t *) * 6);
 
     mpc_parser_t *Number = mpc_new("number");
     mpc_parser_t *Decimal = mpc_new("decimal");
-    mpc_parser_t *Operator = mpc_new("operator");
+    mpc_parser_t *Symbol = mpc_new("symbol");
+    mpc_parser_t *Sexpression = mpc_new("sexpression");
     mpc_parser_t *Expression = mpc_new("expression");
     mpc_parser_t *Hz = mpc_new("hz");
 
@@ -103,16 +33,18 @@ mpc_parser_t **create_basic_parser()
               "   \
         number: /[-+]?[0-9]+/ ;                \
         decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;                \
-        operator: '+' | '-' | '*' | '/' | '%' | '^' ;                \
-        expression: (<decimal> | <number> ) | '(' <operator> <expression>+ ')' ;                \
-        hz: /^/ <operator> <expression>+ /$/ ;                \
+        symbol: '+' | '-' | '*' | '/' | '%' | '^' ;                \
+        sexpression: '(' <expression>* ')'; \
+        expression: (<decimal> | <number> ) | <symbol> | <sexpression>  ;  \
+        hz: /^/ <expression>* /$/ ;                \
     ",
-              Number, Decimal, Operator, Expression, Hz);
+              Number, Decimal, Symbol, Sexpression, Expression, Hz);
     parsers[0] = Number;
     parsers[1] = Decimal;
-    parsers[2] = Operator;
-    parsers[3] = Expression;
-    parsers[4] = Hz;
+    parsers[2] = Symbol;
+    parsers[3] = Sexpression;
+    parsers[4] = Expression;
+    parsers[5] = Hz;
     return parsers;
 }
 
@@ -129,78 +61,6 @@ int number_of_nodes(mpc_ast_t* tree){
         return total;
     }
     return 0;
-}
-
-HzValue eval_op(HzValue x, char* op, HzValue y) {
-
-    if(x.type==HZVAL_ERR){ return x;}
-    if(y.type==HZVAL_ERR) { return y;}
-
-    if(x.type==HZVAL_DECIMAL || y.type==HZVAL_DECIMAL){
-        if(x.type==HZVAL_NUM){
-            x.dec = x.num;
-        }
-        if(y.type==HZVAL_NUM){
-            y.dec = y.num;
-        }
-        
-        if (strcmp(op, "+") == 0) { return hzval_decimal(x.dec + y.dec); }
-        if (strcmp(op, "-") == 0) { return hzval_decimal(x.dec - y.dec); }
-        if (strcmp(op, "*") == 0) { return hzval_decimal(x.dec * y.dec); }
-        if (strcmp(op, "/") == 0) {
-            if(y.dec==0){
-                return hzval_err(HZERR_DIV_ZERO);
-            } else {
-                return hzval_decimal(x.dec / y.dec);
-            }
-            }
-        if (strcmp(op, "%") == 0) { return hzval_decimal(fmod(x.dec,y.dec)); }
-        if (strcmp(op, "^") == 0) { return hzval_decimal(pow(x.dec,y.dec)); }
-    }
-
-  if (strcmp(op, "+") == 0) { return hzval_num(x.num + y.num); }
-  if (strcmp(op, "-") == 0) { return hzval_num(x.num - y.num); }
-  if (strcmp(op, "*") == 0) { return hzval_num(x.num * y.num); }
-  if (strcmp(op, "/") == 0) {
-      if(y.num==0){
-          return hzval_err(HZERR_DIV_ZERO);
-      } else {
-        return hzval_num(x.num / y.num);
-      }
-    }
-  if (strcmp(op, "%") == 0) { return hzval_num(x.num % y.num); }
-  if (strcmp(op, "^") == 0) { return hzval_num(pow(x.num,y.num)); }
-  return hzval_err(HZERR_BAD_OP);
-}
-
-HzValue eval(mpc_ast_t* tree){
-    //Evaluation base case
-    if(strstr(tree->tag,"number")){
-        errno = 0;
-        long number = strtol(tree->contents,NULL,10);
-        return errno != ERANGE ? hzval_num(number) : hzval_err(HZERR_BAD_NUM);
-    }
-
-    if(strstr(tree->tag,"decimal")){
-        errno = 0;
-        double number = strtod(tree->contents,NULL);
-        return errno != ERANGE ? hzval_decimal(number) : hzval_err(HZERR_BAD_NUM);
-    }
-
-    //Evaluation recursive case
-    //The operator is always the second child,the first will be a '('
-    char* op = tree->children[1]->contents;
-
-    HzValue evaluated = eval(tree->children[2]);
-
-    int i = 3;
-    while (strstr(tree->children[i]->tag,"expression"))
-    {
-        evaluated = eval_op(evaluated,op,eval(tree->children[i]));
-        i++;
-    }
-    
-    return evaluated;
 }
 //End AST Traversal Section
 
@@ -232,7 +92,7 @@ int main(int argc, char **argv)
 {
     mpc_parser_t **parsers = create_basic_parser();
 
-    puts("HzLisp v0.0.1 by Hadara");
+    puts("HzLisp v0.0.4 by Hadara");
     puts("Press Ctrl+C to exit");
 
     while (1)
@@ -241,10 +101,12 @@ int main(int argc, char **argv)
         add_history(input);
 
         mpc_result_t r;
-        if (mpc_parse("<stdin>", input, parsers[4], &r))
+        if (mpc_parse("<stdin>", input, parsers[5], &r))
         {
-            HzValue result = eval(r.output);
+            HzValue* parsedData = hzval_read(r.output);
+            HzValue* result = hzval_eval(parsedData);
             hzval_println(result);
+            hzval_del(result);
             mpc_ast_delete(r.output);
         }
         else
@@ -256,6 +118,6 @@ int main(int argc, char **argv)
         free(input);
     }
 
-    mpc_list_cleanup(4, parsers);
+    mpc_list_cleanup(6, parsers);
     return 0;
 }
