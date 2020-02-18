@@ -128,7 +128,7 @@ HzValue* builtin(HzValue* value,char* func){
   if (strcmp("tail", func) == 0) { return builtin_tail(value); }
   if (strcmp("join", func) == 0) { return builtin_join(value); }
   if (strcmp("eval", func) == 0) { return builtin_eval(value); }
-  if (strstr("+-/*", func)) { return builtin_op(value, func); }
+  if (strstr("+-/*^", func)) { return builtin_op(value, func); }
   hzval_del(value);
   return hzval_err("Unknown Function!");
 }
