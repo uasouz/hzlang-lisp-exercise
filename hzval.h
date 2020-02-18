@@ -4,7 +4,7 @@
 #include "mpc.h"
 
 //Evaluation Types Enum
-enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_SYM,HZVAL_SEXPR,HZVAL_ERR};
+enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_SYM,HZVAL_SEXPR,HZVAL_QEXPR,HZVAL_ERR};
 
 
 typedef struct HzValue {
@@ -30,6 +30,7 @@ HzValue* hzval_sexpression(void);
 HzValue* hzval_add(HzValue* parent,HzValue* child);
 HzValue* hzval_pop(HzValue* value,int position);
 HzValue* hzval_take(HzValue* value,int position);
+HzValue* hzval_join(HzValue* first,HzValue* second);
 void hzval_del(HzValue* hzValue);
 
 void hzval_print(HzValue* value);
@@ -41,7 +42,6 @@ HzValue* hzval_read(mpc_ast_t* tree);
 HzValue* hzval_read_num(mpc_ast_t* tree);
 HzValue* hzval_read_decimal(mpc_ast_t* tree);
 
-HzValue* builtin_op(HzValue* value,char* op);
 HzValue* hzval_eval_sexpr(HzValue* value);
 HzValue* hzval_eval(HzValue* value);
 

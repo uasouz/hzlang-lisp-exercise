@@ -1,5 +1,5 @@
 #include "hzval.h"
-
+#include "builtin.h"
 //Utils
 char* join_string(char* first,char* second){
     char* buf = malloc(sizeof(char)* 2048);
@@ -50,6 +50,14 @@ HzValue* hzval_sexpression(void){
     return hzValue;
 }
 
+HzValue* hzval_qexpression(void){
+    HzValue* hzValue = malloc(sizeof(HzValue));
+    hzValue->type = HZVAL_QEXPR;
+    hzValue->count= 0;
+    hzValue->cell=NULL;
+    return hzValue;
+}
+
 void hzval_del(HzValue* hzValue){
     switch(hzValue->type){
         case HZVAL_NUM || HZVAL_DECIMAL: break;
@@ -57,6 +65,7 @@ void hzval_del(HzValue* hzValue){
         case HZVAL_ERR: free(hzValue->err); break;
         case HZVAL_SYM: free(hzValue->sym); break;
 
+        case HZVAL_QEXPR:
         case HZVAL_SEXPR:
             for(int i =0;i<hzValue->count;i++){
                 hzval_del(hzValue->cell[i]);
@@ -85,6 +94,8 @@ void hzval_print_type(HzValue* value){
         printf("HZVAL_SYM"); break;
     case HZVAL_SEXPR:
         printf("HZVAL_SEXPR"); break;
+    case HZVAL_QEXPR:
+        printf("HZVAL_QEXPR"); break;
     }
 }
 
@@ -107,6 +118,8 @@ void hzval_print(HzValue* value){
         printf("%s",value->sym); break;
     case HZVAL_SEXPR:
         hzval_expr_print(value,'(',')'); break;
+    case HZVAL_QEXPR:
+        hzval_expr_print(value,'{','}'); break;
     }
 }
 
@@ -158,10 +171,15 @@ HzValue* hzval_read(mpc_ast_t* tree){
     if(strstr(tree->tag,"sexpression")){
         read = hzval_sexpression();
     }
+    if(strstr(tree->tag,"qexpression")){
+        read = hzval_qexpression();
+    }
 
     for(int i=0;i <tree->children_num; i++){
         if (strcmp(tree->children[i]->contents, "(")==0){ continue;}
         if (strcmp(tree->children[i]->contents, ")")==0){ continue;}
+        if (strcmp(tree->children[i]->contents, "{")==0){ continue;}
+        if (strcmp(tree->children[i]->contents, "}")==0){ continue;}
         if (strcmp(tree->children[i]->tag, "regex")==0){ continue;}
         read = hzval_add(read,hzval_read(tree->children[i]));
     }
@@ -200,68 +218,13 @@ HzValue* hzval_take(HzValue* value,int position){
     return item;
 }
 
-HzValue* eval_op(HzValue* x, char* op, HzValue* y) {
-    if(x->type==HZVAL_ERR){ return hzval_err(x->err);}
-    if(y->type==HZVAL_ERR) { return hzval_err(y->err);}
-
-    if(x->type==HZVAL_DECIMAL || y->type==HZVAL_DECIMAL){
-        if(x->type==HZVAL_NUM){
-            x->dec = x->num;
-        }
-        if(y->type==HZVAL_NUM){
-            y->dec = y->num;
-        }
-        
-        if (strcmp(op, "+") == 0) { return hzval_decimal(x->dec + y->dec); }
-        if (strcmp(op, "-") == 0) { return hzval_decimal(x->dec - y->dec); }
-        if (strcmp(op, "*") == 0) { return hzval_decimal(x->dec * y->dec); }
-        if (strcmp(op, "/") == 0) {
-            if(y->dec==0){
-                return hzval_err("Division by zero");
-            } else {
-                return hzval_decimal(x->dec / y->dec);
-            }
-            }
-        if (strcmp(op, "%") == 0) { return hzval_decimal(fmod(x->dec,y->dec)); }
-        if (strcmp(op, "^") == 0) { return hzval_decimal(pow(x->dec,y->dec)); }
-    }
-  if (strcmp(op, "+") == 0) { return hzval_num(x->num + y->num); }
-  if (strcmp(op, "-") == 0) { return hzval_num(x->num - y->num); }
-  if (strcmp(op, "*") == 0) { return hzval_num(x->num * y->num); }
-  if (strcmp(op, "/") == 0) {
-      if(y->num==0){
-          return hzval_err("Division by zero");
-      } else {
-        return hzval_num(x->num / y->num);
-      }
-    }
-  if (strcmp(op, "%") == 0) { return hzval_num(x->num % y->num); }
-  if (strcmp(op, "^") == 0) { return hzval_num(pow(x->num,y->num)); }
-  return hzval_err("Bad Operation");
-}
-
-HzValue* builtin_op(HzValue* value,char* op){
-    for(int i=0; i< value->count; i++){
-        if(value->cell[i]->type != HZVAL_NUM){
-            hzval_del(value);
-            return hzval_err("Cannot operate on non-number");
-        }
-    }
-    HzValue* start = hzval_pop(value,0);
-
-    if ((strcmp(op,"-")==0)&& value->count==0){
-        start->num = -start->num;
+HzValue* hzval_join(HzValue* first,HzValue* second){
+    while(second->count){
+        first = hzval_add(first,hzval_pop(second,0));
     }
 
-    while(value->count >0){
-        HzValue* next = hzval_pop(value,0);
-
-        start = eval_op(start,op,next);
-
-        hzval_del(next);
-    }    
-    hzval_del(value);
-     return start;
+    hzval_del(second);
+    return first;
 }
 
 HzValue* hzval_eval_sexpr(HzValue* value){
@@ -284,7 +247,7 @@ HzValue* hzval_eval_sexpr(HzValue* value){
         return hzval_err("S-expression Does not start with symbol!");
     }
 
-    HzValue* result = builtin_op(value,first->sym);
+    HzValue* result = builtin(value,first->sym);
     hzval_del(first);
     return result;
 }

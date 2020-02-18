@@ -1,1 +1,1 @@
-cc -g mpc.c hzval.c main.c -ledit -o hz
+cc mpc.c builtin.c hzval.c main.c -ledit -o hz
