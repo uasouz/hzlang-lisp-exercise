@@ -34,7 +34,7 @@ mpc_parser_t **create_basic_parser()
               "   \
         number: /[-+]?[0-9]+/ ;                \
         decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;                \
-        symbol: \"list\" | \"head\" | \"tail\"                \
+        symbol: \"len\" | \"cons\" |\"list\" | \"head\" | \"tail\"                \
            | \"join\" | \"eval\" | '+' | '-' | '*' | '/' | '%' | '^' ;                \
         sexpression: '(' <expression>* ')'; \
         qexpression: '{' <expression>* '}'; \

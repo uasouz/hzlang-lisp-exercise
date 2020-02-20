@@ -25,6 +25,7 @@ HzValue* hzval_decimal(double value);
 HzValue* hzval_err(char* err);
 HzValue* hzval_sym(char* sym);
 HzValue* hzval_sexpression(void);
+HzValue* hzval_qexpression(void);
 
 //HzValue Methods
 HzValue* hzval_add(HzValue* parent,HzValue* child);

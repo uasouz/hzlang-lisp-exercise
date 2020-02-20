@@ -131,7 +131,7 @@ void hzval_details_println(HzValue* value) {
     printf("::");
     printf("%d",value->count);
     putchar('\n');
-    }
+}
 
 
 HzValue* hzval_read_num(mpc_ast_t* tree){

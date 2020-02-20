@@ -45,7 +45,7 @@ HzValue* eval_op(HzValue* x, char* op, HzValue* y) {
 
 HzValue* builtin_op(HzValue* value,char* op){
     for(int i=0; i< value->count; i++){
-        if(value->cell[i]->type != HZVAL_NUM){
+        if(!(value->cell[i]->type == HZVAL_NUM || value->cell[i]->type == HZVAL_DECIMAL)){
             hzval_del(value);
             return hzval_err("Cannot operate on non-number");
         }
@@ -80,9 +80,9 @@ HzValue* builtin_head(HzValue* value){
 }
 
 HzValue* builtin_tail(HzValue* value){
-    LASSERT(value,value->count == 1,"Function 'head' passed too many arguments.");
-    LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'head' passed incorrect type.");
-    LASSERT(value,value->cell[0]->count != 0,"Function 'head' passed '{}'.");
+    LASSERT(value,value->count == 1,"Function 'tail' passed too many arguments.");
+    LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'tail' passed incorrect type.");
+    LASSERT(value,value->cell[0]->count != 0,"Function 'tail' passed '{}'.");
 
     HzValue* tail = hzval_take(value,0);
 
@@ -97,8 +97,8 @@ HzValue* builtin_list(HzValue* value){
 }
 
 HzValue* builtin_eval(HzValue* value){
-    LASSERT(value,value->count == 1,"Function 'head' passed too many arguments.");
-    LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'head' passed incorrect type.");
+    LASSERT(value,value->count == 1,"Function 'eval' passed too many arguments.");
+    LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'eval' passed incorrect type.");
 
     HzValue* evaluable = hzval_take(value,0);
     evaluable->type = HZVAL_SEXPR;
@@ -108,9 +108,9 @@ HzValue* builtin_eval(HzValue* value){
 HzValue* builtin_join(HzValue* value){
 
     for(int i = 0;i < value->count;i++){
-        LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'head' passed incorrect type.");
+        LASSERT(value,value->cell[i]->type == HZVAL_QEXPR,"Function 'join' passed incorrect type.");
     }
-
+    hzval_details_println(value);
     HzValue* accumulator = hzval_pop(value,0);
 
     while (value->count)
@@ -122,12 +122,33 @@ HzValue* builtin_join(HzValue* value){
     return accumulator;
 }
 
+HzValue* builtin_cons(HzValue* value){
+    LASSERT(value,value->count == 2,"Function 'cons' passed too many arguments.");
+    LASSERT(value,value->cell[1]->type == HZVAL_QEXPR,"Function 'cons' passed incorrect type for second value,must be a Q-Expression.");
+    
+    if(!(value->cell[0]->type==HZVAL_QEXPR || value->cell[0]->type==HZVAL_SEXPR)){
+        HzValue* parent = hzval_qexpression();
+        value->cell[0] = hzval_add(parent,value->cell[0]);
+    }
+
+    return builtin_join(value);
+}
+
+HzValue* builtin_len(HzValue* value){
+    LASSERT(value,value->count == 1,"Function 'eval' passed too many arguments.");
+    LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'eval' passed incorrect type.");
+
+    return hzval_num(value->cell[0]->count);
+}
+
 HzValue* builtin(HzValue* value,char* func){
   if (strcmp("list", func) == 0) { return builtin_list(value); }
   if (strcmp("head", func) == 0) { return builtin_head(value); }
   if (strcmp("tail", func) == 0) { return builtin_tail(value); }
   if (strcmp("join", func) == 0) { return builtin_join(value); }
   if (strcmp("eval", func) == 0) { return builtin_eval(value); }
+  if (strcmp("cons", func) == 0) { return builtin_cons(value); }
+  if (strcmp("len", func) == 0)  { return builtin_len(value);  }
   if (strstr("+-/*^", func)) { return builtin_op(value, func); }
   hzval_del(value);
   return hzval_err("Unknown Function!");

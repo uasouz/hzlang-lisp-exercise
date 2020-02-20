@@ -10,6 +10,7 @@ HzValue* builtin_head(HzValue* value);
 HzValue* builtin_tail(HzValue* value);
 HzValue* builtin_eval(HzValue* value);
 HzValue* builtin_join(HzValue* value);
+HzValue* builtin_cons(HzValue* value);
 
 
 #endif
