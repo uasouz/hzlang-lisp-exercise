@@ -12,6 +12,8 @@ typedef struct HzEnv HzEnv;
 //Evaluation Types Enum
 enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_SYM,HZVAL_FUN,HZVAL_SEXPR,HZVAL_QEXPR,HZVAL_ERR};
 
+char* hztype_name(int type);
+
 typedef HzValue*(*HzFunction)(HzEnv*,HzValue*);
 
 typedef struct HzValue {
@@ -31,7 +33,7 @@ typedef struct HzValue {
 //HzValue types constructors
 HzValue* hzval_num(long value);
 HzValue* hzval_decimal(double value);
-HzValue* hzval_err(char* err);
+HzValue* hzval_err(char* err,...);
 HzValue* hzval_sym(char* sym);
 HzValue* hzval_sexpression(void);
 HzValue* hzval_qexpression(void);

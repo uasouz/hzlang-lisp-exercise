@@ -11,6 +11,18 @@ char* join_string(char* first,char* second){
 char* create_error_message(char* message){
     return join_string("Error: ", message);
 }
+
+char* hztype_name(int type) {
+  switch(type) {
+    case HZVAL_FUN: return "Function";
+    case HZVAL_NUM: return "Number";
+    case HZVAL_ERR: return "Error";
+    case HZVAL_SYM: return "Symbol";
+    case HZVAL_SEXPR: return "S-Expression";
+    case HZVAL_QEXPR: return "Q-Expression";
+    default: return "Unknown";
+  }
+}
 //End Utils
 
 //Types Constructors
@@ -28,11 +40,21 @@ HzValue* hzval_decimal(double value){
     return hzValue;
 }
 
-HzValue* hzval_err(char* err){
+HzValue* hzval_err(char* err,...){
     HzValue* hzValue = malloc(sizeof(HzValue));
     hzValue->type = HZVAL_ERR;
-    hzValue->err = malloc(strlen(err)+1);
-    strcpy(hzValue->err,err);
+
+    va_list va;
+    va_start(va,err);
+
+    hzValue->err = malloc(strlen(err)+1024);
+
+    vsnprintf(hzValue->err,strlen(err)+1023,err,va);
+
+    hzValue->err = realloc(hzValue->err,strlen(hzValue->err)+1);
+
+    va_end(va);
+
     return hzValue;
 }
 
@@ -92,7 +114,7 @@ HzValue* hzenv_get(HzEnv* env,HzValue* key){
     if(entry != NULL){
         return hzval_copy(entry->value);
     }
-    return hzval_err("unbound symbol!");
+    return hzval_err("Unbound Symbol '%s'",key->sym);
 }
 
 void hzenv_put(HzEnv* env,HzValue* key,HzValue* value){
@@ -360,14 +382,6 @@ HzValue* hzval_eval_sexpr(HzEnv* env,HzValue* value){
         hzval_del(value);hzval_del(first);
         return hzval_err("value is not a function");
     }
-    // if(first->type != HZVAL_SYM){
-    //     hzval_del(first);hzval_del(value);
-    //     return hzval_err("S-expression Does not start with symbol!");
-    // }
-
-    // HzValue* result = builtin(value,first->sym);
-    // hzval_del(first);
-    // return result;
 
     HzValue* result = first->function(env,value);
     hzval_del(first);
