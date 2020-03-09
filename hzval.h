@@ -59,6 +59,7 @@ HzValue* hzval_eval(HzEnv*env,HzValue* value);
 
 /*Environment */
 HzEnv* hzenv_new(void);
+void hzenv_put(HzEnv* env,HzValue* key,HzValue* value);
 void hzenv_del(HzEnv* env);
 void hzenv_add_builtins(HzEnv* env);
 #endif

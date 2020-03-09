@@ -126,6 +126,7 @@ void hzenv_add_builtins(HzEnv* env){
   hzenv_add_function(env, "eval", builtin_eval);
   hzenv_add_function(env, "join", builtin_join);
   hzenv_add_function(env, "cons", builtin_cons);
+  hzenv_add_function(env, "def", builtin_def);
 
   /* Mathematical Functions */
   hzenv_add_function(env, "+", builtin_add);

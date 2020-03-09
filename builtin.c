@@ -162,6 +162,26 @@ HzValue* builtin_pow(HzEnv* env,HzValue* value){
     return builtin_op(env,value,"^");
 }
 
+HzValue* builtin_def(HzEnv* env,HzValue* value){
+    LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'def' passed incorrect type.");
+
+    HzValue* symbols = value->cell[0];
+
+    for(int i =0;i< symbols->count;i++){
+        LASSERT(value,symbols->cell[i]->type == HZVAL_SYM,"Function 'def' cannot define non-symbol");
+    }
+
+    LASSERT(value,symbols->count == value->count-1,"Function 'def cannot define incorrect "
+    "number of values to symbols");
+
+    for(int i=0;i<symbols->count;i++){
+        hzenv_put(env,symbols->cell[i],value->cell[i+1]);
+    }
+
+    hzval_del(value);
+    return hzval_sexpression();
+}
+
 /*deprecated(?)*/
 HzValue* builtin(HzEnv* env,HzValue* value,char* func){
   if (strcmp("list", func) == 0) { return builtin_list(env,value); }
