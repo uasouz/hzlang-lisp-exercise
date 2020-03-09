@@ -43,7 +43,7 @@ HzValue* eval_op(HzValue* x, char* op, HzValue* y) {
   return hzval_err("Bad Operation");
 }
 
-HzValue* builtin_op(HzValue* value,char* op){
+HzValue* builtin_op(HzEnv* env,HzValue* value,char* op){
     for(int i=0; i< value->count; i++){
         if(!(value->cell[i]->type == HZVAL_NUM || value->cell[i]->type == HZVAL_DECIMAL)){
             hzval_del(value);
@@ -67,7 +67,7 @@ HzValue* builtin_op(HzValue* value,char* op){
      return start;
 }
 
-HzValue* builtin_head(HzValue* value){
+HzValue* builtin_head(HzEnv* env,HzValue* value){
     LASSERT(value,value->count == 1,"Function 'head' passed too many arguments.");
     LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'head' passed incorrect type.");
     LASSERT(value,value->cell[0]->count != 0,"Function 'head' passed '{}'.");
@@ -75,11 +75,11 @@ HzValue* builtin_head(HzValue* value){
     HzValue* head = hzval_take(value,0);
 
     while(head->count>1) {hzval_del(hzval_pop(head,1));}
-    hzval_details_println(head);
+    // hzval_details_println(head);
     return head;
 }
 
-HzValue* builtin_tail(HzValue* value){
+HzValue* builtin_tail(HzEnv* env,HzValue* value){
     LASSERT(value,value->count == 1,"Function 'tail' passed too many arguments.");
     LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'tail' passed incorrect type.");
     LASSERT(value,value->cell[0]->count != 0,"Function 'tail' passed '{}'.");
@@ -91,26 +91,26 @@ HzValue* builtin_tail(HzValue* value){
     return tail;
 }
 
-HzValue* builtin_list(HzValue* value){
+HzValue* builtin_list(HzEnv* env,HzValue* value){
     value->type = HZVAL_QEXPR;
     return value;
 }
 
-HzValue* builtin_eval(HzValue* value){
+HzValue* builtin_eval(HzEnv* env,HzValue* value){
     LASSERT(value,value->count == 1,"Function 'eval' passed too many arguments.");
     LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'eval' passed incorrect type.");
 
     HzValue* evaluable = hzval_take(value,0);
     evaluable->type = HZVAL_SEXPR;
-    return hzval_eval(evaluable);
+    return hzval_eval(env,evaluable);
 }
 
-HzValue* builtin_join(HzValue* value){
+HzValue* builtin_join(HzEnv* env,HzValue* value){
 
     for(int i = 0;i < value->count;i++){
         LASSERT(value,value->cell[i]->type == HZVAL_QEXPR,"Function 'join' passed incorrect type.");
     }
-    hzval_details_println(value);
+    // hzval_details_println(value);
     HzValue* accumulator = hzval_pop(value,0);
 
     while (value->count)
@@ -122,7 +122,7 @@ HzValue* builtin_join(HzValue* value){
     return accumulator;
 }
 
-HzValue* builtin_cons(HzValue* value){
+HzValue* builtin_cons(HzEnv* env,HzValue* value){
     LASSERT(value,value->count == 2,"Function 'cons' passed too many arguments.");
     LASSERT(value,value->cell[1]->type == HZVAL_QEXPR,"Function 'cons' passed incorrect type for second value,must be a Q-Expression.");
     
@@ -131,25 +131,47 @@ HzValue* builtin_cons(HzValue* value){
         value->cell[0] = hzval_add(parent,value->cell[0]);
     }
 
-    return builtin_join(value);
+    return builtin_join(env,value);
 }
 
-HzValue* builtin_len(HzValue* value){
+HzValue* builtin_len(HzEnv* env,HzValue* value){
     LASSERT(value,value->count == 1,"Function 'eval' passed too many arguments.");
     LASSERT(value,value->cell[0]->type == HZVAL_QEXPR,"Function 'eval' passed incorrect type.");
 
     return hzval_num(value->cell[0]->count);
 }
 
-HzValue* builtin(HzValue* value,char* func){
-  if (strcmp("list", func) == 0) { return builtin_list(value); }
-  if (strcmp("head", func) == 0) { return builtin_head(value); }
-  if (strcmp("tail", func) == 0) { return builtin_tail(value); }
-  if (strcmp("join", func) == 0) { return builtin_join(value); }
-  if (strcmp("eval", func) == 0) { return builtin_eval(value); }
-  if (strcmp("cons", func) == 0) { return builtin_cons(value); }
-  if (strcmp("len", func) == 0)  { return builtin_len(value);  }
-  if (strstr("+-/*^", func)) { return builtin_op(value, func); }
+
+HzValue* builtin_add(HzEnv* env,HzValue* value){
+    return builtin_op(env,value,"+");
+}
+
+HzValue* builtin_sub(HzEnv* env,HzValue* value){
+    return builtin_op(env,value,"-");
+}
+
+HzValue* builtin_mul(HzEnv* env,HzValue* value){
+    return builtin_op(env,value,"*");
+}
+
+HzValue* builtin_div(HzEnv* env,HzValue* value){
+    return builtin_op(env,value,"/");
+}
+
+HzValue* builtin_pow(HzEnv* env,HzValue* value){
+    return builtin_op(env,value,"^");
+}
+
+/*deprecated(?)*/
+HzValue* builtin(HzEnv* env,HzValue* value,char* func){
+  if (strcmp("list", func) == 0) { return builtin_list(env,value); }
+  if (strcmp("head", func) == 0) { return builtin_head(env,value); }
+  if (strcmp("tail", func) == 0) { return builtin_tail(env,value); }
+  if (strcmp("join", func) == 0) { return builtin_join(env,value); }
+  if (strcmp("eval", func) == 0) { return builtin_eval(env,value); }
+  if (strcmp("cons", func) == 0) { return builtin_cons(env,value); }
+  if (strcmp("len", func) == 0)  { return builtin_len(env,value);  }
+  if (strstr("+-/*^", func)) { return builtin_op(env,value, func); }
   hzval_del(value);
   return hzval_err("Unknown Function!");
 }

@@ -3,14 +3,23 @@
 
 #include "hzval.h"
 
-HzValue* builtin(HzValue* value,char* func);
-HzValue* builtin_op(HzValue* value,char* op);
-HzValue* builtin_list(HzValue* value);
-HzValue* builtin_head(HzValue* value);
-HzValue* builtin_tail(HzValue* value);
-HzValue* builtin_eval(HzValue* value);
-HzValue* builtin_join(HzValue* value);
-HzValue* builtin_cons(HzValue* value);
+HzValue* builtin(HzEnv* env,HzValue* value,char* func);
+HzValue* builtin_op(HzEnv* env,HzValue* value,char* op);
+HzValue* builtin_list(HzEnv* env,HzValue* value);
+HzValue* builtin_head(HzEnv* env,HzValue* value);
+HzValue* builtin_tail(HzEnv* env,HzValue* value);
+HzValue* builtin_eval(HzEnv* env,HzValue* value);
+HzValue* builtin_join(HzEnv* env,HzValue* value);
+HzValue* builtin_cons(HzEnv* env,HzValue* value);
 
+HzValue* builtin_add(HzEnv* env,HzValue* value);
+
+HzValue* builtin_sub(HzEnv* env,HzValue* value);
+
+HzValue* builtin_mul(HzEnv* env,HzValue* value);
+
+HzValue* builtin_div(HzEnv* env,HzValue* value);
+
+HzValue* builtin_pow(HzEnv* env,HzValue* value);
 
 #endif

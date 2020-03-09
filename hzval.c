@@ -1,5 +1,6 @@
 #include "hzval.h"
 #include "builtin.h"
+#include "builtin/hashmap.h"
 //Utils
 char* join_string(char* first,char* second){
     char* buf = malloc(sizeof(char)* 2048);
@@ -12,6 +13,7 @@ char* create_error_message(char* message){
 }
 //End Utils
 
+//Types Constructors
 HzValue* hzval_num(long value){
     HzValue* hzValue = malloc(sizeof(HzValue));
     hzValue->type = HZVAL_NUM;
@@ -42,6 +44,13 @@ HzValue* hzval_sym(char* sym){
     return hzValue;
 }
 
+HzValue* hzval_function(HzFunction function){
+    HzValue* hzValue = malloc(sizeof(HzValue));
+    hzValue->type = HZVAL_FUN;
+    hzValue->function = function;
+    return hzValue;
+}
+
 HzValue* hzval_sexpression(void){
     HzValue* hzValue = malloc(sizeof(HzValue));
     hzValue->type = HZVAL_SEXPR;
@@ -57,11 +66,80 @@ HzValue* hzval_qexpression(void){
     hzValue->cell=NULL;
     return hzValue;
 }
+//End Types Constructors
+
+//Environment
+struct HzEnv  {
+    struct hashmap store;
+};
+
+typedef struct HzEnvMapEntry{
+    struct hashmap_entry ent;
+    HzValue* value;
+} HzEnvMapEntry;
+
+HzEnvMapEntry* hzenv_map_entry_new(HzValue* key,HzValue* value){
+    HzEnvMapEntry *envEntry = malloc(sizeof(HzEnvMapEntry));
+    hashmap_entry_init(envEntry,hash(key->sym,sizeof(key->sym)));
+    envEntry->value = hzval_copy(value);
+    return envEntry;
+}
+
+HzValue* hzenv_get(HzEnv* env,HzValue* key){
+    struct HzEnvMapEntry keyEntry;
+    hashmap_entry_init(&keyEntry,hash(key->sym,sizeof(key->sym)));
+    struct HzEnvMapEntry* entry = hashmap_get(&env->store,&keyEntry,NULL);
+    if(entry != NULL){
+        return hzval_copy(entry->value);
+    }
+    return hzval_err("unbound symbol!");
+}
+
+void hzenv_put(HzEnv* env,HzValue* key,HzValue* value){
+    HzEnvMapEntry *entry = hzenv_map_entry_new(key,value);
+    hashmap_put(&env->store,entry);
+};
+
+HzEnv* hzenv_new(void){
+    HzEnv* env = malloc(sizeof(HzEnv));
+    hashmap_init(&env->store,NULL,NULL,0);
+    return env;
+}
+
+void hzenv_del(HzEnv* env){
+    hashmap_free(&env->store,1);
+    free(env);
+}
+
+void hzenv_add_function(HzEnv* env,char* name,HzFunction func){
+    HzValue* key = hzval_sym(name);
+    HzValue* value = hzval_function(func);
+    hzenv_put(env,key,value);
+    hzval_del(key);hzval_del(value);
+}
+
+void hzenv_add_builtins(HzEnv* env){
+     /* List Functions */
+  hzenv_add_function(env, "list", builtin_list);
+  hzenv_add_function(env, "head", builtin_head);
+  hzenv_add_function(env, "tail", builtin_tail);
+  hzenv_add_function(env, "eval", builtin_eval);
+  hzenv_add_function(env, "join", builtin_join);
+  hzenv_add_function(env, "cons", builtin_cons);
+
+  /* Mathematical Functions */
+  hzenv_add_function(env, "+", builtin_add);
+  hzenv_add_function(env, "-", builtin_sub);
+  hzenv_add_function(env, "*", builtin_mul);
+  hzenv_add_function(env, "/", builtin_div);
+  hzenv_add_function(env, "^", builtin_pow);
+}
+//End Enviroment
 
 void hzval_del(HzValue* hzValue){
     switch(hzValue->type){
         case HZVAL_NUM || HZVAL_DECIMAL: break;
-
+        case HZVAL_FUN: break;
         case HZVAL_ERR: free(hzValue->err); break;
         case HZVAL_SYM: free(hzValue->sym); break;
 
@@ -96,6 +174,8 @@ void hzval_print_type(HzValue* value){
         printf("HZVAL_SEXPR"); break;
     case HZVAL_QEXPR:
         printf("HZVAL_QEXPR"); break;
+    case HZVAL_FUN:
+        printf("HZVAL_FUN"); break;
     }
 }
 
@@ -120,6 +200,8 @@ void hzval_print(HzValue* value){
         hzval_expr_print(value,'(',')'); break;
     case HZVAL_QEXPR:
         hzval_expr_print(value,'{','}'); break;
+    case HZVAL_FUN:
+        printf("<function>"); break;
     }
 }
 
@@ -132,7 +214,6 @@ void hzval_details_println(HzValue* value) {
     printf("%d",value->count);
     putchar('\n');
 }
-
 
 HzValue* hzval_read_num(mpc_ast_t* tree){
         errno = 0;
@@ -187,6 +268,38 @@ HzValue* hzval_read(mpc_ast_t* tree){
     return read;
 }
 
+HzValue* hzval_copy(HzValue* value){
+    HzValue* copy = malloc(sizeof(HzValue));
+    copy->type = value->type;
+
+    switch(value->type){
+        case HZVAL_NUM:
+            copy->num = value->num; break;
+        case HZVAL_DECIMAL:
+            copy->dec = value->dec; break;
+        case HZVAL_FUN:
+            copy->function = value->function; break;
+
+        case HZVAL_ERR:
+            copy->err = malloc(strlen(value->err)+1);
+            strcpy(copy->err,value->err); break;
+        case HZVAL_SYM:
+            copy->sym = malloc(strlen(value->sym)+1);
+            strcpy(copy->sym,value->sym); break;
+
+        case HZVAL_SEXPR:
+        case HZVAL_QEXPR:
+            copy->count = value->count;
+            copy->cell = malloc(sizeof(HzValue*) * value->count);
+            for (int i =0;i < copy->count;i++){
+                copy->cell[i] = hzval_copy(value->cell[i]);
+            }
+        break;
+    }
+
+    return copy;
+}
+
 void hzval_expr_print(HzValue* hzvalue,char open,char close){
     putchar(open);
     for(int i=0;i<hzvalue->count;i++){
@@ -227,9 +340,9 @@ HzValue* hzval_join(HzValue* first,HzValue* second){
     return first;
 }
 
-HzValue* hzval_eval_sexpr(HzValue* value){
+HzValue* hzval_eval_sexpr(HzEnv* env,HzValue* value){
     for(int i=0;i < value->count;i++){
-        value->cell[i] = hzval_eval(value->cell[i]);
+        value->cell[i] = hzval_eval(env,value->cell[i]);
     }
 
     for(int i=0;i < value->count;i++){
@@ -242,18 +355,31 @@ HzValue* hzval_eval_sexpr(HzValue* value){
 
     HzValue* first = hzval_pop(value,0);
 
-    if(first->type != HZVAL_SYM){
-        hzval_del(first);hzval_del(value);
-        return hzval_err("S-expression Does not start with symbol!");
+    if(first->type != HZVAL_FUN){
+        hzval_del(value);hzval_del(first);
+        return hzval_err("value is not a function");
     }
+    // if(first->type != HZVAL_SYM){
+    //     hzval_del(first);hzval_del(value);
+    //     return hzval_err("S-expression Does not start with symbol!");
+    // }
 
-    HzValue* result = builtin(value,first->sym);
+    // HzValue* result = builtin(value,first->sym);
+    // hzval_del(first);
+    // return result;
+
+    HzValue* result = first->function(env,value);
     hzval_del(first);
-    return result;
+    return result;    
 }
 
-HzValue* hzval_eval(HzValue* value){
-    if(value->type == HZVAL_SEXPR) { return hzval_eval_sexpr(value);}
+HzValue* hzval_eval(HzEnv* env,HzValue* value){
+    if(value->type == HZVAL_SYM) {
+        HzValue* envValue = hzenv_get(env,value);
+        hzval_del(value);
+        return envValue;
+    }
+    if(value->type == HZVAL_SEXPR) { return hzval_eval_sexpr(env,value);}
 
     return value;
 }

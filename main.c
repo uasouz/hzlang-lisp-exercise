@@ -34,8 +34,7 @@ mpc_parser_t **create_basic_parser()
               "   \
         number: /[-+]?[0-9]+/ ;                \
         decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;                \
-        symbol: \"len\" | \"cons\" |\"list\" | \"head\" | \"tail\"                \
-           | \"join\" | \"eval\" | '+' | '-' | '*' | '/' | '%' | '^' ;                \
+        symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ;                \
         sexpression: '(' <expression>* ')'; \
         qexpression: '{' <expression>* '}'; \
         expression: (<decimal> | <number> ) | <symbol> | <sexpression> | <qexpression> ;  \
@@ -96,8 +95,11 @@ int main(int argc, char **argv)
 {
     mpc_parser_t **parsers = create_basic_parser();
 
-    puts("HzLisp v0.0.4 by Hadara");
+    puts("HzLisp v0.0.5 by Hadara");
     puts("Press Ctrl+C to exit");
+
+    HzEnv* rootEnvironment = hzenv_new();
+    hzenv_add_builtins(rootEnvironment);
 
     while (1)
     {
@@ -108,7 +110,7 @@ int main(int argc, char **argv)
         if (mpc_parse("<stdin>", input, parsers[6], &r))
         {
             HzValue* parsedData = hzval_read(r.output);
-            HzValue* result = hzval_eval(parsedData);
+            HzValue* result = hzval_eval(rootEnvironment,parsedData);
             hzval_println(result);
             hzval_del(result);
             mpc_ast_delete(r.output);
@@ -121,7 +123,7 @@ int main(int argc, char **argv)
 
         free(input);
     }
-
+    hzenv_del(rootEnvironment);
     mpc_list_cleanup(7, parsers);
     return 0;
 }
