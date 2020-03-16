@@ -1,3 +1,5 @@
 .vscode
 hz
 hz.dSYM
+.idea
+cmake-build-debug

@@ -3,6 +3,9 @@
 #define LASSERT(args, cond, err,...) \
   if (!(cond)) {  HzValue* error = hzval_err(err,##__VA_ARGS__);hzval_del(args); return error;}
 
+#define LASSERT_ARGUMENT_COUNT(args, cond,...) \
+  LASSERT(args,cond,"Function '%s' passed too many arguments.Got %i, Expected %i.",##__VA_ARGS__);
+
 HzValue* eval_op(HzValue* x, char* op, HzValue* y) {
     if(x->type==HZVAL_ERR){ return hzval_err(x->err);}
     if(y->type==HZVAL_ERR) { return hzval_err(y->err);}
@@ -102,13 +105,16 @@ HzValue* builtin_eval(HzEnv* env,HzValue* value){
 
     HzValue* evaluable = hzval_take(value,0);
     evaluable->type = HZVAL_SEXPR;
-    return hzval_eval(env,evaluable);
+    int r = 1;
+    return hzval_eval(env,evaluable,&r);
 }
 
 HzValue* builtin_join(HzEnv* env,HzValue* value){
 
+    // LASSERT(value,value->count == 2,"Function 'join' passed too many arguments.Got %i, Expected %i.",value->count,2);
+
     for(int i = 0;i < value->count;i++){
-        LASSERT(value,value->cell[i]->type == HZVAL_QEXPR,"Function 'join' passed incorrect type.Got %s, Expected %s.",hztype_name(value->cell[0]->type), hztype_name(HZVAL_QEXPR));
+        LASSERT(value,value->cell[i]->type == HZVAL_QEXPR,"Function 'join' passed incorrect type.Got %s, Expected %s.",hztype_name(value->cell[i]->type), hztype_name(HZVAL_QEXPR));
     }
     // hzval_details_println(value);
     HzValue* accumulator = hzval_pop(value,0);
@@ -123,7 +129,7 @@ HzValue* builtin_join(HzEnv* env,HzValue* value){
 }
 
 HzValue* builtin_cons(HzEnv* env,HzValue* value){
-    LASSERT(value,value->count == 2,"Function 'cons' passed too many arguments.Got %i, Expected %i.",value->count,2);
+    LASSERT(value,value->count == 2,"Function 'cons' passed wrong number of arguments.Got %i, Expected %i.",value->count,2);
     LASSERT(value,value->cell[1]->type == HZVAL_QEXPR,"Function 'cons' passed incorrect type for second value,must be a Q-Expression.Got %s, Expected %s.",hztype_name(value->cell[1]->type), hztype_name(HZVAL_QEXPR));
     
     if(!(value->cell[0]->type==HZVAL_QEXPR || value->cell[0]->type==HZVAL_SEXPR)){
@@ -171,11 +177,16 @@ HzValue* builtin_def(HzEnv* env,HzValue* value){
         LASSERT(value,symbols->cell[i]->type == HZVAL_SYM,"Function 'def' cannot define non-symbol");
     }
 
+
+
     LASSERT(value,symbols->count == value->count-1,"Function 'def cannot define incorrect "
     "number of values to symbols");
 
     for(int i=0;i<symbols->count;i++){
-        hzenv_put(env,symbols->cell[i],value->cell[i+1]);
+        if(!hzenv_put(env,symbols->cell[i],value->cell[i+1])){
+            hzval_del(value);
+            return hzval_err("builtin values cannot be reassigned");
+        }
     }
 
     hzval_del(value);

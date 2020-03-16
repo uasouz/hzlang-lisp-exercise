@@ -4,61 +4,60 @@
 #include "hzval.h"
 
 //Parser section
-void mpc_list_cleanup(int n, mpc_parser_t **list)
-{
+void mpc_list_cleanup(int n, mpc_parser_t **list) {
     int i;
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
         mpc_undefine(list[i]);
     }
-    for (i = 0; i < n; i++)
-    {
+    for (i = 0; i < n; i++) {
         mpc_delete(list[i]);
     }
 }
 
-mpc_parser_t **create_basic_parser()
-{
+mpc_parser_t **create_basic_parser() {
 
-    mpc_parser_t **parsers = malloc(sizeof(mpc_parser_t *) * 7);
+    mpc_parser_t **parsers = malloc(sizeof(mpc_parser_t *) * 8);
 
     mpc_parser_t *Number = mpc_new("number");
     mpc_parser_t *Decimal = mpc_new("decimal");
     mpc_parser_t *Symbol = mpc_new("symbol");
+    mpc_parser_t *Command = mpc_new("command");
     mpc_parser_t *Sexpression = mpc_new("sexpression");
     mpc_parser_t *Qexpression = mpc_new("qexpression");
     mpc_parser_t *Expression = mpc_new("expression");
     mpc_parser_t *Hz = mpc_new("hz");
 
     mpca_lang(MPCA_LANG_DEFAULT,
-              "   \
-        number: /[-+]?[0-9]+/ ;                \
-        decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;                \
-        symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ;                \
-        sexpression: '(' <expression>* ')'; \
-        qexpression: '{' <expression>* '}'; \
-        expression: (<decimal> | <number> ) | <symbol> | <sexpression> | <qexpression> ;  \
+              "\
+        number: /[-+]?[0-9]+/ ;                    \
+        decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;         \
+        command: /\\.[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ;                       \
+        symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ; \
+        sexpression: '(' <expression>* ')';        \
+        qexpression: '{' <expression>* '}';        \
+        expression: (<decimal> | <number> ) | <symbol> | <command> | <sexpression> | <qexpression> ;  \
         hz: /^/ <expression>* /$/ ;                \
     ",
-              Number, Decimal, Symbol, Sexpression, Qexpression, Expression, Hz);
+              Number, Decimal, Command, Symbol, Sexpression, Qexpression, Expression, Hz);
     parsers[0] = Number;
     parsers[1] = Decimal;
     parsers[2] = Symbol;
-    parsers[3] = Sexpression;
-    parsers[4] = Qexpression;
-    parsers[5] = Expression;
-    parsers[6] = Hz;
+    parsers[3] = Command;
+    parsers[4] = Sexpression;
+    parsers[5] = Qexpression;
+    parsers[6] = Expression;
+    parsers[7] = Hz;
     return parsers;
 }
 
 //End parser section
 
 //AST Traversal Section
-int number_of_nodes(mpc_ast_t* tree){
-    if(tree->children_num==0){ return 1;}
-    if(tree->children_num >=1 ){
+int number_of_nodes(mpc_ast_t *tree) {
+    if (tree->children_num == 0) { return 1; }
+    if (tree->children_num >= 1) {
         int total = 1;
-        for(int i =0;i < tree->children_num;i++){
+        for (int i = 0; i < tree->children_num; i++) {
             total = total + number_of_nodes(tree->children[i]);
         }
         return total;
@@ -85,38 +84,37 @@ char *readline(char *prompt)
 void add_history(char *unused) {}
 
 #else
+
 #include <editline/readline.h>
+
 #ifdef __linux
 #include <editline/history.h>
 #endif
 #endif
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     mpc_parser_t **parsers = create_basic_parser();
 
     puts("HzLisp v0.0.5 by Hadara");
     puts("Press Ctrl+C to exit");
 
-    HzEnv* rootEnvironment = hzenv_new();
+    HzEnv *rootEnvironment = hzenv_new();
     hzenv_add_builtins(rootEnvironment);
 
-    while (1)
-    {
+    int running = 1;
+
+    while (running) {
         char *input = readline("hz> ");
         add_history(input);
 
         mpc_result_t r;
-        if (mpc_parse("<stdin>", input, parsers[6], &r))
-        {
-            HzValue* parsedData = hzval_read(r.output);
-            HzValue* result = hzval_eval(rootEnvironment,parsedData);
+        if (mpc_parse("<stdin>", input, parsers[7], &r)) {
+            HzValue *parsedData = hzval_read(r.output);
+            HzValue *result = hzval_eval(rootEnvironment, parsedData, &running);
             hzval_println(result);
             hzval_del(result);
             mpc_ast_delete(r.output);
-        }
-        else
-        {
+        } else {
             mpc_err_print(r.error);
             mpc_err_delete(r.error);
         }
@@ -124,6 +122,6 @@ int main(int argc, char **argv)
         free(input);
     }
     hzenv_del(rootEnvironment);
-    mpc_list_cleanup(7, parsers);
+    mpc_list_cleanup(8, parsers);
     return 0;
 }
