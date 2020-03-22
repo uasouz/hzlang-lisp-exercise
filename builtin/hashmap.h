@@ -28,7 +28,7 @@ struct hashmap {
 
     struct hashmap_entry **table;
 
-    /* User-supplied function to test two git-hashmap entries for equality. Shall
+    /* User-supplied builtin to test two git-hashmap entries for equality. Shall
      * return 0 if the entries are equal. */
     hashmap_cmp_fn cmpfn;
     const void *cmpfn_data;

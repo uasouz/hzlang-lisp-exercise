@@ -66,6 +66,13 @@ HzValue *hzval_err(char *err, ...) {
     return hzValue;
 }
 
+HzValue *hzval_boolean(int bool){
+    HzValue *hzValue = malloc(sizeof(HzValue));
+    hzValue->type = HZVAL_BOOLEAN;
+    hzValue->num = bool;
+    return hzValue;
+}
+
 HzValue *hzval_command(char *sym) {
     HzValue *hzValue = malloc(sizeof(HzValue));
     hzValue->type = HZVAL_COMMAND;
@@ -82,13 +89,33 @@ HzValue *hzval_sym(char *sym) {
     return hzValue;
 }
 
+
+struct HzEnv {
+    struct HzEnv *parent;
+    struct hashmap store;
+};
+
+HzValue *hzval_lambda(HzEnv *parent, HzValue *formals, HzValue *body) {
+    HzValue *hzValue = malloc(sizeof(HzValue));
+    hzValue->type = HZVAL_FUN;
+
+    /*Making sure it is not a builtin*/
+    hzValue->builtin = NULL;
+    hzValue->functionEnv = hzenv_new();
+    hzValue->functionEnv->parent = parent;
+
+    hzValue->formals = formals;
+    hzValue->body = body;
+
+    return hzValue;
+}
+
 HzValue *hzval_function(HzFunction function, char *sym) {
     HzValue *hzValue = malloc(sizeof(HzValue));
     hzValue->type = HZVAL_FUN;
-    hzValue->builtin=0;
     hzValue->sym = malloc(strlen(sym) + 1);
     strcpy(hzValue->sym, sym);
-    hzValue->function = function;
+    hzValue->builtin = function;
     return hzValue;
 }
 
@@ -110,10 +137,6 @@ HzValue *hzval_qexpression(void) {
 //End Types Constructors
 
 //Environment
-struct HzEnv {
-    struct hashmap store;
-};
-
 typedef struct HzEnvMapEntry {
     struct hashmap_entry ent;
     HzValue *value;
@@ -133,67 +156,93 @@ HzValue *hzenv_get(HzEnv *env, HzValue *key) {
     if (entry != NULL) {
         return hzval_copy(entry->value);
     }
-    return hzval_err("Unbound Symbol '%s'", key->sym);
+
+    if (env->parent) {
+        return hzenv_get(env->parent, key);
+    } else {
+        return hzval_err("Unbound Symbol '%s'", key->sym);
+    }
 }
 
-int hzenv_check_builtin_functions(HzEnv* env,HzValue* key){
-    HzValue* value = hzenv_get(env,key);
-    if(value->type == HZVAL_FUN && strstr(value->sym,key->sym)){
-        if(value->builtin){
-            return 1;
-        }
-        return 0;
+int hzenv_check_builtin_functions(HzEnv *env, HzValue *key) {
+    HzValue *value = hzenv_get(env, key);
+//    if (value->type == HZVAL_FUN && strstr(value->sym, key->sym)) {
+    if (value->type == HZVAL_FUN && value->builtin != NULL) {
+        return 1;
     }
     return 0;
 }
 
 int hzenv_put(HzEnv *env, HzValue *key, HzValue *value) {
-    if(hzenv_check_builtin_functions(env,key)){
+    if (hzenv_check_builtin_functions(env, key)) {
         return 0;
     }
     HzEnvMapEntry *entry = hzenv_map_entry_new(key, value);
     hashmap_put(&env->store, entry);
     return 1;
-};
+}
+
+int hzenv_def(HzEnv *env, HzValue *key, HzValue *value) {
+
+    while (env->parent) { env = env->parent; }
+
+    return hzenv_put(env, key, value);
+}
 
 HzEnv *hzenv_new(void) {
     HzEnv *env = malloc(sizeof(HzEnv));
+    env->parent = NULL;
     hashmap_init(&env->store, NULL, NULL, 0);
     return env;
 }
 
+HzEnv *hzenv_copy(HzEnv *env) {
+    HzEnv *copy = hzenv_new();
+    struct hashmap_iter iter;
+    struct hashmap_entry *e;
+    hashmap_iter_init(&env->store, &iter);
+    while ((e = hashmap_iter_next(&iter))) {
+        hashmap_put(&copy->store, e);
+    }
+    copy->parent = env->parent;
+    return copy;
+}
+
 void hzenv_del(HzEnv *env) {
-    hashmap_free(&env->store, 1);
+    hashmap_free(&env->store, 0);
     free(env);
 }
 
-void hzenv_add_function(HzEnv *env, char *name, HzFunction func,int builtin) {
+void hzenv_add_function(HzEnv *env, char *name, HzFunction func) {
     HzValue *key = hzval_sym(name);
     HzValue *value = hzval_function(func, name);
-    if(builtin == 1){
-        value->builtin=1;
-    }
     hzenv_put(env, key, value);
     hzval_del(key);
     hzval_del(value);
 }
 
 void hzenv_add_builtins(HzEnv *env) {
+    /*Lambda function*/
+    hzenv_add_function(env, "\\", builtin_lambda);
+
     /* List Functions */
-    hzenv_add_function(env, "list", builtin_list,1);
-    hzenv_add_function(env, "head", builtin_head,1);
-    hzenv_add_function(env, "tail", builtin_tail,1);
-    hzenv_add_function(env, "eval", builtin_eval,1);
-    hzenv_add_function(env, "join", builtin_join,1);
-    hzenv_add_function(env, "cons", builtin_cons,1);
-    hzenv_add_function(env, "def", builtin_def,1);
+    hzenv_add_function(env, "list", builtin_list);
+    hzenv_add_function(env, "head", builtin_head);
+    hzenv_add_function(env, "tail", builtin_tail);
+    hzenv_add_function(env, "eval", builtin_eval);
+    hzenv_add_function(env, "join", builtin_join);
+    hzenv_add_function(env, "cons", builtin_cons);
+    hzenv_add_function(env, "def", builtin_def);
+    hzenv_add_function(env, "fun", builtin_fun);
+    hzenv_add_function(env, "len", builtin_len);
+    hzenv_add_function(env, "=", builtin_put);
 
     /* Mathematical Functions */
-    hzenv_add_function(env, "+", builtin_add,1);
-    hzenv_add_function(env, "-", builtin_sub,1);
-    hzenv_add_function(env, "*", builtin_mul,1);
-    hzenv_add_function(env, "/", builtin_div,1);
-    hzenv_add_function(env, "^", builtin_pow,1);
+    hzenv_add_function(env, "+", builtin_add);
+    hzenv_add_function(env, "-", builtin_sub);
+    hzenv_add_function(env, "*", builtin_mul);
+    hzenv_add_function(env, "/", builtin_div);
+    hzenv_add_function(env, "^", builtin_pow);
 }
 //End Enviroment
 
@@ -202,6 +251,11 @@ void hzval_del(HzValue *hzValue) {
         case HZVAL_NUM || HZVAL_DECIMAL:
             break;
         case HZVAL_FUN:
+            if (!hzValue->builtin) {
+                hzenv_del(hzValue->functionEnv);
+                hzval_del(hzValue->formals);
+                hzval_del(hzValue->body);
+            }
             break;
         case HZVAL_ERR:
             free(hzValue->err);
@@ -257,6 +311,13 @@ void hzval_print(HzValue *value) {
         case HZVAL_NUM:
             printf("%li", value->num);
             break;
+        case HZVAL_BOOLEAN:
+            if(value->num == 0){
+                printf("false");
+            } else{
+                printf("true");
+            }
+            break;
         case HZVAL_DECIMAL:
             printf("%f", value->dec);
             break;
@@ -277,7 +338,15 @@ void hzval_print(HzValue *value) {
             hzval_expr_print(value, '{', '}');
             break;
         case HZVAL_FUN:
-            printf("<function>: %s", value->sym);
+            if (value->builtin) {
+                printf("<builtin>: %s", value->sym);
+            } else {
+                printf("(\\");
+                hzval_print(value->formals);
+                putchar(' ');
+                hzval_print(value->body);
+                putchar(')');
+            }
             break;
     }
 }
@@ -326,6 +395,11 @@ HzValue *hzval_read(mpc_ast_t *tree) {
         return hzval_read_decimal(tree);
     }
     if (strstr(tree->tag, "symbol")) {
+        if(strcmp(tree->contents,"true")==0){
+            return hzval_boolean(1);
+        } else if(strcmp(tree->contents,"false")==0) {
+            return hzval_boolean(0);
+        }
         return hzval_sym(tree->contents);
     }
 
@@ -360,14 +434,23 @@ HzValue *hzval_copy(HzValue *value) {
         case HZVAL_NUM:
             copy->num = value->num;
             break;
+        case HZVAL_BOOLEAN:
+            copy->num = value->num;
+            break;
         case HZVAL_DECIMAL:
             copy->dec = value->dec;
             break;
         case HZVAL_FUN:
-            copy->function = value->function;
-            copy->sym = malloc(strlen(value->sym) + 1);
-            strcpy(copy->sym, value->sym);
-            copy->builtin = value->builtin;
+            if (value->builtin) {
+                copy->builtin = value->builtin;
+                copy->sym = malloc(strlen(value->sym) + 1);
+                strcpy(copy->sym, value->sym);
+            } else {
+                copy->builtin = NULL;
+                copy->functionEnv = hzenv_copy(value->functionEnv);
+                copy->formals = hzval_copy(value->formals);
+                copy->body = hzval_copy(value->body);
+            }
             break;
 
         case HZVAL_ERR:
@@ -432,6 +515,80 @@ HzValue *hzval_join(HzValue *first, HzValue *second) {
     return first;
 }
 
+
+HzValue *hzval_call(HzEnv *env, HzValue *function, HzValue *body) {
+
+    if (function->builtin) { return function->builtin(env, body); }
+
+    int given = body->count;
+    int total = function->formals->count;
+
+    while (body->count) {
+
+        if (function->formals->count == 0) {
+            hzval_del(body);
+            return hzval_err(
+                    "Function passed too many arguments. "
+                    "Got %i, Expected %i.", given, total);
+        }
+
+        HzValue *symbol = hzval_pop(function->formals, 0);
+
+        if (strcmp(symbol->sym, "&") == 0) {
+            if (function->formals->count != 1) {
+                hzval_del(body);
+                return hzval_err("Function format invalid. "
+                                 "Symbol '&' not followed by single symbol.");
+            }
+
+            HzValue *nSymbols = hzval_pop(function->formals, 0);
+            hzenv_put(function->functionEnv, nSymbols, builtin_list(env, body));
+            hzval_del(symbol);
+            hzval_del(nSymbols);
+            break;
+        }
+
+        HzValue *value = hzval_pop(body, 0);
+
+        hzenv_put(function->functionEnv, symbol, value);
+
+        hzval_del(symbol);
+        hzval_del(value);
+    }
+
+    hzval_del(body);
+
+    if (function->formals->count > 0 &&
+        strcmp(function->formals->cell[0]->sym, "&") == 0) {
+        if (function->formals->count != 2) {
+            return hzval_err("Function format invalid. "
+                             "Symbol '&' not followed by single symbol.");
+        }
+
+        hzval_del(hzval_pop(function->formals, 0));
+
+        HzValue *symbol = hzval_pop(function->formals, 0);
+
+        HzValue *value = hzval_qexpression();
+
+        hzenv_put(function->functionEnv, symbol, value);
+
+        hzval_del(symbol);
+        hzval_del(value);
+    }
+
+    if (function->formals->count == 0) {
+
+        function->functionEnv->parent = env;
+
+        return builtin_eval(
+                function->functionEnv, hzval_add(hzval_sexpression(), hzval_copy(function->body)));
+    } else {
+        return hzval_copy(function);
+    }
+
+}
+
 HzValue *hzval_eval_sexpr(HzEnv *env, HzValue *value, int *running) {
     for (int i = 0; i < value->count; i++) {
         value->cell[i] = hzval_eval(env, value->cell[i], running);
@@ -448,12 +605,17 @@ HzValue *hzval_eval_sexpr(HzEnv *env, HzValue *value, int *running) {
     HzValue *first = hzval_pop(value, 0);
 
     if (first->type != HZVAL_FUN) {
+        HzValue *err = hzval_err(
+                "S-Expression starts with incorrect type. "
+                "Got %s, Expected %s.", hztype_name(first->type),
+                hztype_name(HZVAL_FUN)
+        );
         hzval_del(value);
         hzval_del(first);
-        return hzval_err("value is not a function");
+        return err;
     }
 
-    HzValue *result = first->function(env, value);
+    HzValue *result = hzval_call(env, first, value);
     hzval_del(first);
     return result;
 }

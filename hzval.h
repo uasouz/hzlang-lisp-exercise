@@ -10,7 +10,7 @@ typedef struct HzValue HzValue;
 typedef struct HzEnv HzEnv;
 
 //Evaluation Types Enum
-enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_SYM,HZVAL_COMMAND,HZVAL_FUN,HZVAL_SEXPR,HZVAL_QEXPR,HZVAL_ERR};
+enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_BOOLEAN,HZVAL_SYM,HZVAL_COMMAND,HZVAL_FUN,HZVAL_SEXPR,HZVAL_QEXPR,HZVAL_ERR};
 
 char* hztype_name(int type);
 
@@ -21,8 +21,10 @@ typedef struct HzValue {
   long num;
   double dec;
   /*Function Type*/
-  int builtin;
-  HzFunction function;
+  HzFunction builtin;
+  HzEnv* functionEnv;
+  HzValue* formals;
+  HzValue* body;
   /* Error and Symbol types have some string data */
   char* err;
   char* sym;
@@ -58,11 +60,12 @@ HzValue* hzval_read_decimal(mpc_ast_t* tree);
 
 HzValue* hzval_eval_sexpr(HzEnv* env,HzValue* value,int* running);
 HzValue* hzval_eval(HzEnv*env,HzValue* value,int* running);
-
+HzValue *hzval_lambda(HzEnv *parent,HzValue *formals, HzValue *body);
 
 /*Environment */
 HzEnv* hzenv_new(void);
 int hzenv_put(HzEnv* env,HzValue* key,HzValue* value);
+int hzenv_def(HzEnv* env,HzValue* key,HzValue* value);
 HzValue *hzenv_get(HzEnv *env, HzValue *key);
 void hzenv_del(HzEnv* env);
 void hzenv_add_builtins(HzEnv* env);

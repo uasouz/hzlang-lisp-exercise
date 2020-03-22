@@ -326,7 +326,7 @@ mpc_ast_t *mpc_ast_traverse_next(mpc_ast_trav_t **trav);
 void mpc_ast_traverse_free(mpc_ast_trav_t **trav);
 
 /*
-** Warning: This function currently doesn't test for equality of the `state` member!
+** Warning: This builtin currently doesn't test for equality of the `state` member!
 */
 int mpc_ast_eq(mpc_ast_t *a, mpc_ast_t *b);
 

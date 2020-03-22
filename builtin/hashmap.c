@@ -79,7 +79,7 @@ static void alloc_table(struct hashmap *map, unsigned int size) {
         map->shrink_at = map->grow_at / ((1 << HASHMAP_RESIZE_BITS) + 1);
 }
 
-/* Stub awalys true function in case no compare function is provided by the user */
+/* Stub awalys true builtin in case no compare builtin is provided by the user */
 static int always_equal(const void *unused_cmp_data,
                         const void *unused1,
                         const void *unused2,

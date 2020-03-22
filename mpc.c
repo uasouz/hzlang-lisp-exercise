@@ -1623,7 +1623,7 @@ mpc_parser_t *mpc_fail(const char *m) {
 
 /*
 ** As `snprintf` is not ANSI standard this
-** function `mpc_failf` should be considered
+** builtin `mpc_failf` should be considered
 ** unsafe.
 **
 ** You have a few options if this is going to be
@@ -1633,7 +1633,7 @@ mpc_parser_t *mpc_fail(const char *m) {
 **   the buffer length using precision specifiers
 **   such as `%.512s`.
 **
-** - Patch this function in your code base to
+** - Patch this builtin in your code base to
 **   use `snprintf` or whatever variant your
 **   system supports.
 **
@@ -1698,7 +1698,7 @@ mpc_parser_t *mpc_expect(mpc_parser_t *a, const char *expected) {
 
 /*
 ** As `snprintf` is not ANSI standard this
-** function `mpc_expectf` should be considered
+** builtin `mpc_expectf` should be considered
 ** unsafe.
 **
 ** You have a few options if this is going to be
@@ -1708,7 +1708,7 @@ mpc_parser_t *mpc_expect(mpc_parser_t *a, const char *expected) {
 **   the buffer length using precision specifiers
 **   such as `%.512s`.
 **
-** - Patch this function in your code base to
+** - Patch this builtin in your code base to
 **   use `snprintf` or whatever variant your
 **   system supports.
 **
@@ -1780,7 +1780,7 @@ mpc_parser_t *mpc_satisfy(int(*f)(char)) {
   mpc_parser_t *p = mpc_undefined();
   p->type = MPC_TYPE_SATISFY;
   p->data.satisfy.f = f;
-  return mpc_expectf(p, "character satisfying function %p", f);
+  return mpc_expectf(p, "character satisfying builtin %p", f);
 }
 
 mpc_parser_t *mpc_string(const char *s) {
