@@ -35,6 +35,7 @@ typedef struct HzValue {
 
 //HzValue types constructors
 HzValue* hzval_num(long value);
+HzValue* hzval_boolean(long value);
 HzValue* hzval_decimal(double value);
 HzValue* hzval_err(char* err,...);
 HzValue* hzval_sym(char* sym);
@@ -61,6 +62,8 @@ HzValue* hzval_read_decimal(mpc_ast_t* tree);
 HzValue* hzval_eval_sexpr(HzEnv* env,HzValue* value,int* running);
 HzValue* hzval_eval(HzEnv*env,HzValue* value,int* running);
 HzValue *hzval_lambda(HzEnv *parent,HzValue *formals, HzValue *body);
+
+int hzval_eq(HzValue *first, HzValue *second);
 
 /*Environment */
 HzEnv* hzenv_new(void);

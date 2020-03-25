@@ -32,7 +32,7 @@ mpc_parser_t **create_basic_parser() {
         number: /[-+]?[0-9]+/ ;                    \
         decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;         \
         command: /\\.[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ;                       \
-        symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ; \
+        symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&|]+/ ; \
         sexpression: '(' <expression>* ')';        \
         qexpression: '{' <expression>* '}';        \
         expression: (<decimal> | <number> ) | <symbol> | <command> | <sexpression> | <qexpression> ;  \

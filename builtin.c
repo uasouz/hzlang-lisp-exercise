@@ -310,6 +310,146 @@ HzValue *builtin_fun(HzEnv *env, HzValue *value) {
     return builtin_def(env, defValue);
 }
 
+HzValue *builtin_and(HzEnv *env, HzValue *value) {
+    for (int i = 0; i < value->count; i++) {
+        if (!(value->cell[i]->type == HZVAL_BOOLEAN || value->cell[i]->type == HZVAL_NUM)) {
+            hzval_del(value);
+            return hzval_err("Cannot operate on non-number or non-boolean");
+        }
+    }
+
+    HzValue *first = hzval_pop(value, 0);
+
+    while (value->count > 0) {
+        HzValue *next = hzval_pop(value, 0);
+        if (first->num && next->num) {
+            first = hzval_boolean(1);
+        } else {
+            return hzval_boolean(0);
+        }
+        hzval_del(next);
+    }
+    hzval_del(value);
+    return hzval_boolean(1);
+}
+
+HzValue *builtin_or(HzEnv *env, HzValue *value) {
+
+    HzValue *first = hzval_pop(value, 0);
+
+    if (first->type != HZVAL_BOOLEAN) {
+        return first;
+    }
+
+    while (value->count > 0) {
+        HzValue *next = hzval_pop(value, 0);
+        if (!first->num && !next->num) {
+            first = hzval_boolean(0);
+        } else {
+            return next;
+        }
+        hzval_del(next);
+    }
+    hzval_del(value);
+    return hzval_boolean(0);
+}
+
+
+HzValue *builtin_not(HzEnv *env, HzValue *value) {
+    LASSERT_ARGUMENT_COUNT("not", value, 1);
+    LASSERT_TYPE("not", value, 0, HZVAL_BOOLEAN);
+
+    if (value->cell[0]->num == 0) {
+        return hzval_boolean(1);
+    }
+    return hzval_boolean(0);
+}
+
+HzValue *builtin_ord(HzEnv *env, HzValue *value, char *op) {
+    LASSERT_ARGUMENT_COUNT(op, value, 2)
+    for (int i = 0; i < value->count; i++) {
+        if (!(value->cell[i]->type == HZVAL_BOOLEAN || value->cell[i]->type == HZVAL_NUM)) {
+            hzval_del(value);
+            return hzval_err("Cannot compare non-number or non-boolean");
+        }
+    }
+
+
+    int result = 0;
+    if (strcmp(op, ">") == 0) {
+        result = (value->cell[0]->num > value->cell[1]->num);
+    }
+    if (strcmp(op, ">=") == 0) {
+        result = (value->cell[0]->num >= value->cell[1]->num);
+    }
+    if (strcmp(op, "<") == 0) {
+        result = (value->cell[0]->num < value->cell[1]->num);
+    }
+    if (strcmp(op, "<=") == 0) {
+        result = (value->cell[0]->num <= value->cell[1]->num);
+    }
+    hzval_del(value);
+    return hzval_boolean(result);
+}
+
+HzValue *builtin_gt(HzEnv *env, HzValue *value) {
+    return builtin_ord(env, value, ">");
+}
+
+HzValue *builtin_gte(HzEnv *env, HzValue *value) {
+    return builtin_ord(env, value, ">=");
+}
+
+HzValue *builtin_lt(HzEnv *env, HzValue *value) {
+    return builtin_ord(env, value, "<");
+}
+
+HzValue *builtin_lte(HzEnv *env, HzValue *value) {
+    return builtin_ord(env, value, "<=");
+}
+
+HzValue *builtin_cmp(HzEnv *env, HzValue *value, char *op) {
+    LASSERT_ARGUMENT_COUNT(op, value, 2)
+    int result = 0;
+    if (strcmp(op, "==") == 0) {
+        result = hzval_eq(value->cell[0], value->cell[1]);
+    }
+    if (strcmp(op, "!=") == 0) {
+        result = !hzval_eq(value->cell[0], value->cell[1]);
+    }
+    hzval_del(value);
+    return hzval_boolean(result);
+}
+
+HzValue *builtin_eq(HzEnv *env, HzValue *value) {
+    return builtin_cmp(env, value, "==");
+}
+
+HzValue *builtin_not_eq(HzEnv *env, HzValue *value) {
+    return builtin_cmp(env, value, "!=");
+}
+
+HzValue *builtin_if(HzEnv *env, HzValue *value) {
+    LASSERT_ARGUMENT_COUNT("if", value, 3)
+    LASSERT(value, value->cell[0]->type == HZVAL_NUM || value->cell[0]->type == HZVAL_BOOLEAN,
+            "Function %s passed incorrect type.Got %s, Expected %s.", "if",
+            hztype_name(value->cell[0]->type), hztype_name(HZVAL_BOOLEAN));
+    LASSERT_TYPE("if", value, 1, HZVAL_QEXPR)
+    LASSERT_TYPE("if", value, 2, HZVAL_QEXPR)
+
+    HzValue* result;
+    value->cell[1]->type = HZVAL_SEXPR;
+    value->cell[2]->type = HZVAL_SEXPR;
+    int running = 1;
+    if(value->cell[0]->num){
+        result = hzval_eval(env,value->cell[1],&running);
+    } else {
+        result = hzval_eval(env,value->cell[2],&running);
+    }
+    hzval_del(value);
+    return result;
+}
+
 /*deprecated(?)*/
 HzValue *builtin(HzEnv *env, HzValue *value, char *func) {
     if (strcmp("list", func) == 0) { return builtin_list(env, value); }

@@ -17,6 +17,8 @@ char *hztype_name(int type) {
     switch (type) {
         case HZVAL_FUN:
             return "Function";
+        case HZVAL_BOOLEAN:
+            return "Boolean";
         case HZVAL_NUM:
             return "Number";
         case HZVAL_ERR:
@@ -66,7 +68,7 @@ HzValue *hzval_err(char *err, ...) {
     return hzValue;
 }
 
-HzValue *hzval_boolean(int bool){
+HzValue *hzval_boolean(long bool) {
     HzValue *hzValue = malloc(sizeof(HzValue));
     hzValue->type = HZVAL_BOOLEAN;
     hzValue->num = bool;
@@ -243,6 +245,24 @@ void hzenv_add_builtins(HzEnv *env) {
     hzenv_add_function(env, "*", builtin_mul);
     hzenv_add_function(env, "/", builtin_div);
     hzenv_add_function(env, "^", builtin_pow);
+
+    /*Boolean Functions*/
+    hzenv_add_function(env, "&&", builtin_and);
+    hzenv_add_function(env, "||", builtin_or);
+    hzenv_add_function(env, "!", builtin_not);
+
+    /*Ordering Functions*/
+    hzenv_add_function(env, ">", builtin_gt);
+    hzenv_add_function(env, ">=", builtin_gte);
+    hzenv_add_function(env, "<", builtin_lt);
+    hzenv_add_function(env, "<=", builtin_lte);
+
+    /*Equality Functions*/
+    hzenv_add_function(env, "==", builtin_eq);
+    hzenv_add_function(env, "!=", builtin_not_eq);
+
+    /*Conditional Functions*/
+    hzenv_add_function(env, "if", builtin_if);
 }
 //End Enviroment
 
@@ -281,6 +301,9 @@ void hzval_print_type(HzValue *value) {
         case HZVAL_NUM:
             printf("HZVAL_NUM");
             break;
+        case HZVAL_BOOLEAN:
+            printf("HZVAL_BOOLEAN");
+            break;
         case HZVAL_DECIMAL:
             printf("HZVAL_DECIMAL");
             break;
@@ -312,9 +335,9 @@ void hzval_print(HzValue *value) {
             printf("%li", value->num);
             break;
         case HZVAL_BOOLEAN:
-            if(value->num == 0){
+            if (value->num == 0) {
                 printf("false");
-            } else{
+            } else {
                 printf("true");
             }
             break;
@@ -395,10 +418,10 @@ HzValue *hzval_read(mpc_ast_t *tree) {
         return hzval_read_decimal(tree);
     }
     if (strstr(tree->tag, "symbol")) {
-        if(strcmp(tree->contents,"true")==0){
-            return hzval_boolean(1);
-        } else if(strcmp(tree->contents,"false")==0) {
-            return hzval_boolean(0);
+        if (strcmp(tree->contents, "true") == 0) {
+            return hzval_boolean(1l);
+        } else if (strcmp(tree->contents, "false") == 0) {
+            return hzval_boolean(0l);
         }
         return hzval_sym(tree->contents);
     }
@@ -424,6 +447,39 @@ HzValue *hzval_read(mpc_ast_t *tree) {
     }
 
     return read;
+}
+
+int hzval_eq(HzValue *first, HzValue *second) {
+
+    if (first->type != second->type) {
+        return 0;
+    }
+
+    switch (first->type) {
+        case HZVAL_NUM:
+        case HZVAL_BOOLEAN:
+            return (first->num == second->num);
+        case HZVAL_ERR:
+            return (strcmp(first->err, second->err) == 0);
+        case HZVAL_SYM:
+            return (strcmp(first->sym, second->sym) == 0);
+
+        case HZVAL_FUN:
+            if (first->builtin || second->builtin) {
+                return first->builtin == second->builtin;
+            } else {
+                return hzval_eq(first->formals, second->formals)
+                       && hzval_eq(first->body, second->body);
+            }
+        case HZVAL_QEXPR:
+        case HZVAL_SEXPR:
+            if (first->count != second->count) { return 0; }
+            for (int i=0;i < first->count;i++){
+                if(!hzval_eq(first->cell[i],second->cell[i])){return 0;}
+            }
+            return 1;
+    }
+    return 0;
 }
 
 HzValue *hzval_copy(HzValue *value) {
