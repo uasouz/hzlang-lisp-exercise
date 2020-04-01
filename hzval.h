@@ -10,7 +10,7 @@ typedef struct HzValue HzValue;
 typedef struct HzEnv HzEnv;
 
 //Evaluation Types Enum
-enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_BOOLEAN,HZVAL_SYM,HZVAL_COMMAND,HZVAL_FUN,HZVAL_SEXPR,HZVAL_QEXPR,HZVAL_ERR};
+enum {HZVAL_NUM,HZVAL_DECIMAL,HZVAL_STRING,HZVAL_BOOLEAN,HZVAL_SYM,HZVAL_COMMAND,HZVAL_FUN,HZVAL_SEXPR,HZVAL_QEXPR,HZVAL_ERR};
 
 char* hztype_name(int type);
 
@@ -27,7 +27,8 @@ typedef struct HzValue {
   HzValue* body;
   /* Error and Symbol types have some string data */
   char* err;
-  char* sym;
+    char* sym;
+    char* string;
   /* Count and Pointer to a list of "HzValue*" */
   int count;
   struct HzValue** cell;
@@ -39,6 +40,7 @@ HzValue* hzval_boolean(long value);
 HzValue* hzval_decimal(double value);
 HzValue* hzval_err(char* err,...);
 HzValue* hzval_sym(char* sym);
+HzValue* hzval_string(char* string);
 HzValue* hzval_sexpression(void);
 HzValue* hzval_qexpression(void);
 

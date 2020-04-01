@@ -43,6 +43,14 @@ HzValue *hzval_num(long value) {
     return hzValue;
 }
 
+HzValue *hzval_string(char *string) {
+    HzValue *hzValue = malloc(sizeof(HzValue));
+    hzValue->type = HZVAL_STRING;
+    hzValue->string = malloc(strlen(string) + 1);
+    strcpy(hzValue->string, string);
+    return hzValue;
+}
+
 HzValue *hzval_decimal(double value) {
     HzValue *hzValue = malloc(sizeof(HzValue));
     hzValue->type = HZVAL_DECIMAL;
@@ -283,6 +291,9 @@ void hzval_del(HzValue *hzValue) {
         case HZVAL_SYM:
             free(hzValue->sym);
             break;
+        case HZVAL_STRING:
+            free(hzValue->string);
+            break;
 
         case HZVAL_QEXPR:
         case HZVAL_SEXPR:
@@ -295,11 +306,22 @@ void hzval_del(HzValue *hzValue) {
     free(hzValue);
 }
 
+void hzval_print_string(HzValue *value) {
+    char *escaped = malloc(strlen(value->string) + 1);
+    strcpy(escaped, value->string);
+    escaped = mpcf_escape(escaped);
+    printf("\"%s\"", escaped);
+
+    free(escaped);
+}
 
 void hzval_print_type(HzValue *value) {
     switch (value->type) {
         case HZVAL_NUM:
             printf("HZVAL_NUM");
+            break;
+        case HZVAL_STRING:
+            printf("HZVAL_STRING");
             break;
         case HZVAL_BOOLEAN:
             printf("HZVAL_BOOLEAN");
@@ -350,6 +372,9 @@ void hzval_print(HzValue *value) {
             free(error);
             break;
         }
+        case HZVAL_STRING:
+            hzval_print_string(value);
+            break;
         case HZVAL_COMMAND:
         case HZVAL_SYM:
             printf("%s", value->sym);
@@ -400,6 +425,22 @@ HzValue *hzval_read_decimal(mpc_ast_t *tree) {
     return errno != ERANGE ? hzval_decimal(number) : hzval_err("Invalid Number");
 }
 
+HzValue *hzval_read_string(mpc_ast_t *tree) {
+    tree->contents[strlen(tree->contents) - 1] = '\0';
+
+    char *unescaped = malloc(strlen(tree->contents + 1) + 1);
+
+    strcpy(unescaped, tree->contents + 1);
+
+    unescaped = mpcf_unescape(unescaped);
+
+    HzValue *string = hzval_string(unescaped);
+
+    free(unescaped);
+
+    return string;
+}
+
 HzValue *hzval_add(HzValue *parent, HzValue *child) {
     parent->count++;
     parent->cell = realloc(parent->cell, sizeof(HzValue *) * parent->count);
@@ -416,6 +457,9 @@ HzValue *hzval_read(mpc_ast_t *tree) {
     }
     if (strstr(tree->tag, "decimal")) {
         return hzval_read_decimal(tree);
+    }
+    if (strstr(tree->tag, "string")) {
+        return hzval_read_string(tree);
     }
     if (strstr(tree->tag, "symbol")) {
         if (strcmp(tree->contents, "true") == 0) {
@@ -463,6 +507,8 @@ int hzval_eq(HzValue *first, HzValue *second) {
             return (strcmp(first->err, second->err) == 0);
         case HZVAL_SYM:
             return (strcmp(first->sym, second->sym) == 0);
+        case HZVAL_STRING:
+            return (strcmp(first->string, second->string) == 0);
 
         case HZVAL_FUN:
             if (first->builtin || second->builtin) {
@@ -474,8 +520,8 @@ int hzval_eq(HzValue *first, HzValue *second) {
         case HZVAL_QEXPR:
         case HZVAL_SEXPR:
             if (first->count != second->count) { return 0; }
-            for (int i=0;i < first->count;i++){
-                if(!hzval_eq(first->cell[i],second->cell[i])){return 0;}
+            for (int i = 0; i < first->count; i++) {
+                if (!hzval_eq(first->cell[i], second->cell[i])) { return 0; }
             }
             return 1;
     }
@@ -516,6 +562,10 @@ HzValue *hzval_copy(HzValue *value) {
         case HZVAL_SYM:
             copy->sym = malloc(strlen(value->sym) + 1);
             strcpy(copy->sym, value->sym);
+            break;
+        case HZVAL_STRING:
+            copy->string = malloc(strlen(value->string) + 1);
+            strcpy(copy->string, value->string);
             break;
 
         case HZVAL_SEXPR:

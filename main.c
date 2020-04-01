@@ -16,10 +16,11 @@ void mpc_list_cleanup(int n, mpc_parser_t **list) {
 
 mpc_parser_t **create_basic_parser() {
 
-    mpc_parser_t **parsers = malloc(sizeof(mpc_parser_t *) * 8);
+    mpc_parser_t **parsers = malloc(sizeof(mpc_parser_t *) * 9);
 
     mpc_parser_t *Number = mpc_new("number");
     mpc_parser_t *Decimal = mpc_new("decimal");
+    mpc_parser_t *String = mpc_new("string");
     mpc_parser_t *Symbol = mpc_new("symbol");
     mpc_parser_t *Command = mpc_new("command");
     mpc_parser_t *Sexpression = mpc_new("sexpression");
@@ -31,22 +32,24 @@ mpc_parser_t **create_basic_parser() {
               "\
         number: /[-+]?[0-9]+/ ;                    \
         decimal: /[-+]?[0-9]+[.]?[0-9]+/ ;         \
+        string  :  /\"(\\\\.|[^\"])*\"/;           \
         command: /\\.[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ;                       \
         symbol: /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&|]+/ ; \
         sexpression: '(' <expression>* ')';        \
         qexpression: '{' <expression>* '}';        \
-        expression: (<decimal> | <number> ) | <symbol> | <command> | <sexpression> | <qexpression> ;  \
+        expression: (<decimal> | <number> ) | <string> | <symbol> | <command> | <sexpression> | <qexpression> ;  \
         hz: /^/ <expression>* /$/ ;                \
     ",
-              Number, Decimal, Command, Symbol, Sexpression, Qexpression, Expression, Hz);
+              Number, Decimal,String, Command, Symbol, Sexpression, Qexpression, Expression, Hz);
     parsers[0] = Number;
     parsers[1] = Decimal;
-    parsers[2] = Symbol;
-    parsers[3] = Command;
-    parsers[4] = Sexpression;
-    parsers[5] = Qexpression;
-    parsers[6] = Expression;
-    parsers[7] = Hz;
+    parsers[2] = String;
+    parsers[3] = Symbol;
+    parsers[4] = Command;
+    parsers[5] = Sexpression;
+    parsers[6] = Qexpression;
+    parsers[7] = Expression;
+    parsers[8] = Hz;
     return parsers;
 }
 
@@ -108,7 +111,7 @@ int main(int argc, char **argv) {
         add_history(input);
 
         mpc_result_t r;
-        if (mpc_parse("<stdin>", input, parsers[7], &r)) {
+        if (mpc_parse("<stdin>", input, parsers[8], &r)) {
             HzValue *parsedData = hzval_read(r.output);
             HzValue *result = hzval_eval(rootEnvironment, parsedData, &running);
             hzval_println(result);
@@ -122,6 +125,6 @@ int main(int argc, char **argv) {
         free(input);
     }
     hzenv_del(rootEnvironment);
-    mpc_list_cleanup(8, parsers);
+    mpc_list_cleanup(9, parsers);
     return 0;
 }
