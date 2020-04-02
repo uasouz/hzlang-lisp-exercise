@@ -25,6 +25,8 @@ char *hztype_name(int type) {
             return "Error";
         case HZVAL_SYM:
             return "Symbol";
+        case HZVAL_STRING:
+            return "String";
         case HZVAL_SEXPR:
             return "S-Expression";
         case HZVAL_QEXPR:
@@ -482,6 +484,7 @@ HzValue *hzval_read(mpc_ast_t *tree) {
     }
 
     for (int i = 0; i < tree->children_num; i++) {
+        if (strstr(tree->children[i]->tag, "comment")) { continue; }
         if (strcmp(tree->children[i]->contents, "(") == 0) { continue; }
         if (strcmp(tree->children[i]->contents, ")") == 0) { continue; }
         if (strcmp(tree->children[i]->contents, "{") == 0) { continue; }
