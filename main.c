@@ -104,8 +104,8 @@ int main(int argc, char **argv) {
     puts("HzLisp v0.0.5 by Hadara");
     puts("Press Ctrl+C to exit");
 
-    HzEnv *rootEnvironment = hzenv_new();
-    hzenv_add_builtins(rootEnvironment);
+    HzEnv *rootEnvironment = hzenv_new(NULL);
+    hzenv_add_builtins(rootEnvironment,parsers[9]);
 
     int running = 1;
 

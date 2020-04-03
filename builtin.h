@@ -65,4 +65,12 @@ HzValue* builtin_not_eq(HzEnv* env,HzValue* value);
 //Conditional
 HzValue *builtin_if(HzEnv *env, HzValue *value);
 
+//Import
+HzValue *builtin_load(HzEnv *env, HzValue *value);
+void set_parser(mpc_parser_t *parser);
+
+//Printing
+HzValue *builtin_print(HzEnv *env, HzValue *value);
+HzValue *builtin_error(HzEnv *env, HzValue *value);
+
 #endif

@@ -113,8 +113,8 @@ HzValue *hzval_lambda(HzEnv *parent, HzValue *formals, HzValue *body) {
 
     /*Making sure it is not a builtin*/
     hzValue->builtin = NULL;
-    hzValue->functionEnv = hzenv_new();
-    hzValue->functionEnv->parent = parent;
+    hzValue->functionEnv = hzenv_new(parent);
+//    hzValue->functionEnv->parent = parent;
 
     hzValue->formals = formals;
     hzValue->body = body;
@@ -201,15 +201,15 @@ int hzenv_def(HzEnv *env, HzValue *key, HzValue *value) {
     return hzenv_put(env, key, value);
 }
 
-HzEnv *hzenv_new(void) {
+HzEnv *hzenv_new(HzEnv *parent) {
     HzEnv *env = malloc(sizeof(HzEnv));
-    env->parent = NULL;
+    env->parent = parent;
     hashmap_init(&env->store, NULL, NULL, 0);
     return env;
 }
 
 HzEnv *hzenv_copy(HzEnv *env) {
-    HzEnv *copy = hzenv_new();
+    HzEnv *copy = hzenv_new(env->parent);
     struct hashmap_iter iter;
     struct hashmap_entry *e;
     hashmap_iter_init(&env->store, &iter);
@@ -233,7 +233,7 @@ void hzenv_add_function(HzEnv *env, char *name, HzFunction func) {
     hzval_del(value);
 }
 
-void hzenv_add_builtins(HzEnv *env) {
+void hzenv_add_builtins(HzEnv *env,mpc_parser_t* parser) {
     /*Lambda function*/
     hzenv_add_function(env, "\\", builtin_lambda);
 
@@ -273,6 +273,16 @@ void hzenv_add_builtins(HzEnv *env) {
 
     /*Conditional Functions*/
     hzenv_add_function(env, "if", builtin_if);
+
+    /*Importing*/
+    set_parser(parser);
+    hzenv_add_function(env, "import", builtin_load);
+
+    /*Printing*/
+    hzenv_add_function(env,"print",builtin_print);
+    hzenv_add_function(env,"error",builtin_error);
+
+
 }
 //End Enviroment
 
@@ -688,7 +698,7 @@ HzValue *hzval_call(HzEnv *env, HzValue *function, HzValue *body) {
 
     if (function->formals->count == 0) {
 
-        function->functionEnv->parent = env;
+//        function->functionEnv->parent = env;
 
         return builtin_eval(
                 function->functionEnv, hzval_add(hzval_sexpression(), hzval_copy(function->body)));

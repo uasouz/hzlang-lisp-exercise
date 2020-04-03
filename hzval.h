@@ -68,10 +68,10 @@ HzValue *hzval_lambda(HzEnv *parent,HzValue *formals, HzValue *body);
 int hzval_eq(HzValue *first, HzValue *second);
 
 /*Environment */
-HzEnv* hzenv_new(void);
+HzEnv* hzenv_new(HzEnv* parent);
 int hzenv_put(HzEnv* env,HzValue* key,HzValue* value);
 int hzenv_def(HzEnv* env,HzValue* key,HzValue* value);
 HzValue *hzenv_get(HzEnv *env, HzValue *key);
 void hzenv_del(HzEnv* env);
-void hzenv_add_builtins(HzEnv* env);
+void hzenv_add_builtins(HzEnv* env,mpc_parser_t* parser);
 #endif

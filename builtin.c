@@ -437,17 +437,84 @@ HzValue *builtin_if(HzEnv *env, HzValue *value) {
     LASSERT_TYPE("if", value, 1, HZVAL_QEXPR)
     LASSERT_TYPE("if", value, 2, HZVAL_QEXPR)
 
-    HzValue* result;
+    HzValue *result;
     value->cell[1]->type = HZVAL_SEXPR;
     value->cell[2]->type = HZVAL_SEXPR;
     int running = 1;
-    if(value->cell[0]->num){
-        result = hzval_eval(env,value->cell[1],&running);
+    if (value->cell[0]->num) {
+        result = hzval_eval(env, value->cell[1], &running);
     } else {
-        result = hzval_eval(env,value->cell[2],&running);
+        result = hzval_eval(env, value->cell[2], &running);
     }
     hzval_del(value);
     return result;
+}
+
+//HzValue *builtin_load_import(HzEnv *env, HzValue *value){
+//
+//}
+
+mpc_parser_t *parser;
+
+HzValue *builtin_load(HzEnv *env, HzValue *value) {
+    LASSERT_ARGUMENT_COUNT("load", value, 1);
+    LASSERT_TYPE("load", value, 0, HZVAL_STRING);
+
+    mpc_result_t result;
+    if (mpc_parse_contents(value->cell[0]->string, parser, &result)) {
+        HzValue *expression = hzval_read(result.output);
+        mpc_ast_delete(result.output);
+
+        int running = 1;
+        while (expression->count) {
+            HzValue *evaluation = hzval_eval(env, hzval_pop(expression, 0), &running);
+
+            if (evaluation->type == HZVAL_ERR) { hzval_println(evaluation); }
+            hzval_del(evaluation);
+        }
+
+        hzval_del(expression);
+        hzval_del(value);
+
+        return hzval_sexpression();
+    } else {
+        char *err_msg = mpc_err_string(result.error);
+        mpc_err_delete(result.error);
+
+        HzValue *err = hzval_err("Could not load Library %s", err_msg);
+
+        free(err_msg);
+        hzval_del(value);
+        return err;
+    }
+
+
+}
+
+HzValue *builtin_print(HzEnv *env, HzValue *value) {
+    for (int i = 0; i < value->count; i++) {
+        hzval_print(value->cell[i]);
+        putchar(' ');
+    }
+
+    putchar('\n');
+    hzval_del(value);
+
+    return hzval_sexpression();
+}
+
+HzValue *builtin_error(HzEnv *env, HzValue *value) {
+    LASSERT_ARGUMENT_COUNT("error",value,1);
+    LASSERT_TYPE("error",value,0,HZVAL_STRING);
+
+    HzValue* error = hzval_err(value->cell[0]->string);
+
+    hzval_del(value);
+    return error;
+}
+
+void set_parser(mpc_parser_t *p) {
+    parser = p;
 }
 
 /*deprecated(?)*/
